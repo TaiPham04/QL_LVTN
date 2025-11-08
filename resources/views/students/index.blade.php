@@ -4,13 +4,18 @@
 
 @section('content')
 <div class="container"> 
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5>Danh sách sinh viên</h5>
+    <div class="d-flex justify-content-between mb-3">
+        <h4>Danh sách sinh viên</h4>
         <div>
             <a href="" class="btn btn-success">Xuất file excel</a>
-            <a href="{{ route('students.create') }}" class="btn btn-primary">+ Thêm sinh viên</a>
+
+            {{-- Chỉ hiển thị nút thêm sinh viên nếu là admin --}}
+            @if(session('user') && session('user')->role === 'admin')
+                <a href="{{ route('students.create') }}" class="btn btn-primary">+ Thêm sinh viên</a>
+            @endif
         </div>
     </div>
+
 
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -22,8 +27,8 @@
                 <th>MSSV</th>
                 <th>Họ tên</th>
                 <th>Lớp</th>
-                <th>Email</th>
                 <th>SĐT</th>
+                <th>Email</th>
             </tr>
         </thead>
         <tbody>
@@ -32,8 +37,8 @@
                     <td>{{ $sv->mssv }}</td>
                     <td>{{ $sv->hoten }}</td>
                     <td>{{ $sv->lop }}</td>
-                    <td>{{ $sv->email }}</td>
                     <td>{{ $sv->sdt }}</td>
+                    <td>{{ $sv->email }}</td>
                 </tr>
             @endforeach
         </tbody>

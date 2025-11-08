@@ -23,4 +23,10 @@ class Student extends Model
         "email",    // Email
         "sdt",      // Số điện thoại
     ];
+
+    public function assignment()
+    {
+        return $this->hasOne(\App\Models\Assignment::class, 'mssv', 'mssv');
+    }
+
 }

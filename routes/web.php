@@ -1,52 +1,197 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\StudentController;
+use App\Http\Controllers\{
+    AuthController,
+    AdminController,
+    LecturerController,
+    LecturerAssignmentController,
+    StudentController,
+    AssignmentController
+};
 
-Route::get('/', fn() => view('dashboard'))->name('dashboard');
+/*
+|--------------------------------------------------------------------------
+| TRANG CHỦ VÀ ĐĂNG NHẬP
+|--------------------------------------------------------------------------
+*/
+
+// Trang chủ - tự động điều hướng theo vai trò
+Route::get('/', function () {
+    $user = session('user');
+    if (!$user) {
+        return redirect()->route('login');
+    }
+
+    switch ($user->role) {
+        case 'admin':
+            return redirect()->route('admin.dashboard');
+        case 'giangvien':
+            return redirect()->route('lecturers.home');
+        default:
+            return redirect()->route('login');
+    }
+});
+
+// Đăng nhập / đăng xuất
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE DÀNH CHO ADMIN
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE DÀNH CHO GIẢNG VIÊN
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'lecturers']) // 👈 middleware LecturersMiddleware
+    ->prefix('lecturers')                // 👈 thư mục view của bạn là “lecturers” có chữ s
+    ->name('lecturers.')
+    ->group(function () {
+
+        // Trang chủ
+        Route::get('/home', function () {
+            return view('lecturers.home');
+        })->name('home');
+
+        // Danh sách sinh viên
+        Route::get('/students', [StudentController::class, 'index'])
+            ->name('students.index');
+
+        // Nhóm & Đề tài
+        Route::get('/assignments/form', [LecturerAssignmentController::class, 'index'])
+            ->name('assignments.form');
+
+        // Lưu phân công
+        Route::post('/assignments/store', [LecturerAssignmentController::class, 'store'])
+            ->name('assignments.store');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE DÀNH CHO SINH VIÊN
+|--------------------------------------------------------------------------
+*/
+Route::controller(StudentController::class)
+    ->prefix('students')
+    ->name('students.')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+
+        Route::get('/import', 'showImportForm')->name('import.form');
+        Route::post('/import', 'import')->name('import');
+
+        Route::get('/edit-list', 'showEditList')->name('edit.list');
+        Route::get('/{mssv}/edit', 'edit')->name('edit');
+        Route::put('/{mssv}', 'update')->name('update');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE QUẢN LÝ GIẢNG VIÊN (ADMIN)
+|--------------------------------------------------------------------------
+*/
+Route::controller(LecturerController::class)
+    ->prefix('lecturers-management')
+    ->name('lecturersManagement.')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::get('/edit-list', 'editList')->name('edit.list');
+        Route::get('/edit/{magv}', 'edit')->name('edit');
+        Route::post('/update/{magv}', 'update')->name('update');
+        Route::post('/import', 'import')->name('import');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE PHÂN CÔNG (ADMIN)
+|--------------------------------------------------------------------------
+*/
+Route::controller(AssignmentController::class)
+    ->prefix('assignments')
+    ->name('assignments.')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/form', 'showForm')->name('form');
+        Route::post('/save', 'save')->name('save');
+        Route::post('/bulk-save', 'bulkSave')->name('bulkSave');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| TRANG KHÁC / TEST
+|--------------------------------------------------------------------------
+*/
 Route::get('/timeline', fn() => view('dashboard'))->name('timeline.index');
-
-Route::prefix('students')->group(function () {
-    Route::get('/create', fn() => view('dashboard'))->name('students.create');
-    Route::get('/edit', fn() => view('dashboard'))->name('students.edit');
-});
-
-Route::get('/lecturers', fn() => view('dashboard'))->name('lecturers.index');
-Route::get('/assignments', fn() => view('dashboard'))->name('assignments.index');
 Route::get('/settings', fn() => view('dashboard'))->name('settings.index');
+Route::get('/layout/index', fn() => view('layouts.app'))->name('layouts.app');
 
-Route::controller(StudentController::class)->group(function(){
-    
-    
-    Route::get('/students/create','create')->name('students.create');
-    Route::post('/students','store')->name('students.store');
-    Route::get('/students','index')->name('students.index');
 
-    
-    Route::get('/students/import', 'showImportForm')->name('students.import.form');
-    Route::post('/students/import', 'import')->name('students.import');
+Route::prefix('lecturers')->group(function () {
+    Route::get('/', [LecturerController::class, 'index'])->name('lecturers.index');
+    Route::get('/create', [LecturerController::class, 'create'])->name('lecturers.create');
+    Route::post('/store', [LecturerController::class, 'store'])->name('lecturers.store');
+    Route::get('/edit/{id}', [LecturerController::class, 'edit'])->name('lecturers.edit');
+    Route::post('/update/{id}', [LecturerController::class, 'update'])->name('lecturers.update');
+    Route::get('/delete/{id}', [LecturerController::class, 'destroy'])->name('lecturers.delete');
 
-    
-    Route::get('/students/{mssv}/edit','edit')->name('students.edit');
-    Route::put('/students/{mssv}','update')->name('students.update');
+    // Trang home riêng của giảng viên
+    Route::get('/home', [LecturerController::class, 'home'])->name('lecturers.home');
 
-    Route::get('/students/edit-list','showEditList')->name('students.edit.list');
-    Route::get('/students/{mssv}/edit-form','edit')->name('students.edit.form');
+    // Route để giảng viên xem danh sách sinh viên
+    Route::get('/students', [LecturerController::class, 'students'])->name('lecturers.students');
 });
 
-// ----Dữ Liệu Gốc----
-// Route cho Student - SẮP XẾP LẠI VÀ XÓA TRÙNG LẶP
-// Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
-// Route::post('/students', [StudentController::class, 'store'])->name('students.store');
-// Route::get('/students', [StudentController::class, 'index'])->name('students.index');
+Route::get('/edit-list', [LecturerController::class, 'editList'])->name('lecturers.edit.list');
 
-// Thêm sinh viên bằng file
-// Route::get('/students/import', [StudentController::class, 'showImportForm'])->name('students.import.form');
-// Route::post('/students/import', [StudentController::class, 'import'])->name('students.import');
+Route::get('/lecturers/home', function () {
+    return view('lecturers.home');
+})->name('lecturers.home');
 
-// Sửa sinh viên
-// Route::get('/students/{mssv}/edit', [StudentController::class, 'edit'])->name('students.edit');
-// Route::put('/students/{mssv}', [StudentController::class, 'update'])->name('students.update');
+Route::middleware(['auth', 'lecturer'])
+    ->prefix('lecturers')
+    ->name('lecturers.')
+    ->group(function () {
 
-// Route::get('/students/edit-list', [StudentController::class, 'showEditList'])->name('students.edit.list');
-// Route::get('/students/{mssv}/edit-form', [StudentController::class, 'edit'])->name('students.edit.form');
+        // Trang chủ giảng viên
+        Route::get('/home', fn() => view('lecturers.home'))->name('home');
+
+        // Danh sách sinh viên
+        Route::get('/students', [App\Http\Controllers\StudentController::class, 'index'])
+            ->name('students.index');
+
+        // Nhóm & đề tài
+        Route::get('/assignments/form', [App\Http\Controllers\LecturerAssignmentController::class, 'index'])
+            ->name('assignments.form');
+
+        // Lưu phân công
+        Route::post('/assignments/store', [App\Http\Controllers\LecturerAssignmentController::class, 'store'])
+            ->name('assignments.store');
+    });

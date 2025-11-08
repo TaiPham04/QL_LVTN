@@ -2,17 +2,17 @@
 
 namespace App\Imports;
 
-use App\Models\Student;
+use App\Models\Lecturer;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\BeforeImport;
 use Exception;
 
-class StudentsImport implements ToModel, WithHeadingRow, WithEvents
+class LecturersImport implements ToModel, WithHeadingRow, WithEvents
 {
     // Danh sách cột chuẩn theo DB
-    protected $expectedHeaders = ['mssv', 'hoten', 'lop', 'email', 'sdt'];
+    protected $expectedHeaders = ['magv', 'hoten', 'email'];
 
     public function registerEvents(): array
     {
@@ -25,7 +25,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithEvents
                     throw new Exception("⚠️ File Excel không có hàng tiêu đề (header). Vui lòng kiểm tra lại!");
                 }
 
-                // Chuyển tiêu đề về chữ thường, bỏ dấu cách
+                // Chuyển tiêu đề về chữ thường, bỏ khoảng trắng
                 $normalizedHeader = array_map(fn($h) => strtolower(trim($h)), $headerRow);
 
                 // Kiểm tra cột thiếu
@@ -42,26 +42,20 @@ class StudentsImport implements ToModel, WithHeadingRow, WithEvents
     public function model(array $row)
     {
         // Bỏ qua nếu thiếu thông tin bắt buộc
-        if (
-            empty($row['mssv']) ||
-            empty($row['hoten']) ||
-            empty($row['lop'])
-        ) {
-            return null; // bỏ qua dòng này
-        }
-
-        // Nếu MSSV đã tồn tại thì không thêm lại
-        if (Student::where('mssv', trim($row['mssv']))->exists()) {
+        if (empty($row['magv']) || empty($row['hoten'])) {
             return null;
         }
 
-        // Thêm sinh viên mới
-        return new Student([
-            'mssv'  => trim($row['mssv']),
+        // Nếu mã giảng viên đã tồn tại thì bỏ qua
+        if (Lecturer::where('magv', trim($row['magv']))->exists()) {
+            return null;
+        }
+
+        // Thêm giảng viên mới
+        return new Lecturer([
+            'magv'  => trim($row['magv']),
             'hoten' => trim($row['hoten']),
-            'lop'   => trim($row['lop']),
             'email' => $row['email'] ?? null,
-            'sdt'   => $row['sdt'] ?? null,
         ]);
     }
 }

@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('header', 'Sửa sinh viên')
+@section('header', 'Sửa giảng viên')
 
 @section('content')
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5>Danh sách sinh viên - Chỉnh sửa</h5>
+        <h5>Danh sách giảng viên - Chỉnh sửa</h5>
     </div>
 
     @if (session('success'))
@@ -15,24 +15,20 @@
     <table class="table table-bordered table-hover align-middle">
         <thead class="table-light">
             <tr>
-                <th>MSSV</th>
+                <th>Mã GV</th>
                 <th>Họ tên</th>
-                <th>Lớp</th>
-                <th>SĐT</th>
                 <th>Email</th>
                 <th class="text-center" style="width:120px;">Thao tác</th> 
             </tr>
         </thead>
         <tbody>
-            @foreach ($students as $sv)
+            @foreach ($lecturers as $gv)
                 <tr>
-                    <td>{{ $sv->mssv }}</td>
-                    <td>{{ $sv->hoten }}</td>
-                    <td>{{ $sv->lop }}</td>
-                    <td>{{ $sv->sdt }}</td>
-                    <td>{{ $sv->email }}</td>
+                    <td>{{ $gv->magv }}</td>
+                    <td>{{ $gv->hoten }}</td>
+                    <td>{{ $gv->email }}</td>
                     <td class="text-center">
-                        <a href="{{ route('students.edit', $sv->mssv) }}" class="btn btn-sm btn-warning">
+                        <a href="{{ route('lecturers.edit', $gv->magv) }}" class="btn btn-sm btn-warning">
                             <i class="fa fa-edit"></i> Sửa
                         </a>
                     </td>

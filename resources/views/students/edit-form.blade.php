@@ -30,13 +30,13 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" value="{{ $student->email }}">
+                    <label for="sdt" class="form-label">Số điện thoại</label>
+                    <input type="text" class="form-control" id="sdt" name="sdt" value="{{ $student->sdt }}">
                 </div>
 
                 <div class="mb-3">
-                    <label for="sdt" class="form-label">Số điện thoại</label>
-                    <input type="text" class="form-control" id="sdt" name="sdt" value="{{ $student->sdt }}">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ $student->email }}">
                 </div>
 
                 <div class="d-flex gap-2">

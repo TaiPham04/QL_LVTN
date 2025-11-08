@@ -24,16 +24,16 @@ class StudentController extends Controller
             'mssv' => 'required|string|max:20',
             'hoten' => 'required|string|max:100',
             'lop' => 'required|string|max:50',
-            'email' => 'required|email',
             'sdt' => 'required|string|max:15',
+            'email' => 'required|email',
         ]);
         try {
             DB::table('sinhvien')->insert([
                 'mssv' => $request->mssv,
                 'hoten' => $request->hoten,
                 'lop' => $request->lop,
-                'email' => $request->email,
                 'sdt' => $request->sdt,
+                'email' => $request->email,
             ]);
 
             return redirect()->back()->with('success', 'Thêm sinh viên thành công!');
@@ -65,9 +65,43 @@ class StudentController extends Controller
 
     public function index()
     {
-        $students = \App\Models\Student::all(); 
-        return view('students.index', compact('students'));
+        $user = session('user');
+
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập trước.');
+        }
+
+        // Nếu là admin → hiển thị tất cả sinh viên
+        if ($user->role === 'admin') {
+            $students = DB::table('sinhvien')->get();
+            return view('students.index', compact('students'));
+        }
+
+        // Nếu là giảng viên → lọc sinh viên theo phân công
+        if ($user->role === 'giangvien') {
+            $email = $user->email;
+
+            $lecturer = DB::table('giangvien')->where('email', $email)->first();
+
+            if (!$lecturer) {
+                return back()->with('error', 'Không tìm thấy thông tin giảng viên!');
+            }
+
+            $assignedStudents = DB::table('phancong')
+                ->where('magv', $lecturer->magv)
+                ->pluck('mssv');
+
+            $students = DB::table('sinhvien')
+                ->whereIn('mssv', $assignedStudents)
+                ->get();
+
+            return view('students.index', compact('students'));
+        }
+
+        // Nếu role khác
+        return redirect()->route('login')->with('error', 'Không có quyền truy cập.');
     }
+
 
     // Hiển thị DANH SÁCH sinh viên có nút sửa (dùng cho edit.blade.php)
     public function showEditList()
@@ -91,8 +125,8 @@ class StudentController extends Controller
         $request->validate([
             'hoten' => 'required',
             'lop' => 'required',
-            'email' => 'nullable|email',
             'sdt' => 'nullable',
+            'email' => 'nullable|email',
         ]);
 
         $student->update($request->all());
