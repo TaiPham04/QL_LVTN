@@ -2,9 +2,22 @@
     <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
         <i class="fa fa-home me-2"></i> Dashboard
     </a>
-    <a href="{{ route('timeline.index') }}" class="{{ request()->routeIs('timeline.index') ? 'active' : '' }}">
-        <i class="fa fa-clock me-2"></i> Các Mốc Thời Gian
+
+    <a class="d-flex justify-content-between align-items-center" 
+        data-bs-toggle="collapse" href="#timelineMenu" role="button" aria-expanded="false" aria-controls="timelineMenu">
+        <span><i class="fa fa-clock me-2"></i> Các Mốc Thời Gian</span>
+        <i class="fa fa-chevron-down small"></i>
     </a>
+    <div class="collapse ps-4" id="timelineMenu">
+        <a href="{{ route('timeline.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('timeline.index') ? 'text-primary fw-bold' : '' }}">
+            Quản lý mốc thời gian
+        </a>
+        <a href="{{ route('admin.topics') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.topics.index') ? 'text-primary fw-bold' : '' }}">
+            Danh sách đề tài
+        </a>
+    </div>
 
     <a class="d-flex justify-content-between align-items-center" 
         data-bs-toggle="collapse" href="#svMenu" role="button" aria-expanded="false" aria-controls="svMenu">

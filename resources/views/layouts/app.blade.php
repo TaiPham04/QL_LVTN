@@ -74,14 +74,62 @@
         @endswitch
     </div>
 
-  
+@if($role === 'admin' && auth()->check())
+                @php
+                    $notifications = auth()->user()->unreadNotifications ?? collect();
+                @endphp
+
+                <div class="dropdown">
+                    <a href="#" class="text-decoration-none text-dark position-relative" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa fa-bell fs-5"></i>
+                        @if($notifications->count() > 0)
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ $notifications->count() }}
+                            </span>
+                        @endif
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end p-0 notification-dropdown">
+                        @if($notifications->isEmpty())
+                            <li class="p-3 text-center text-secondary">Không có thông báo mới</li>
+                        @else
+                            @foreach($notifications as $noti)
+                                <li class="border-bottom">
+                                    <a href="#" class="dropdown-item py-2">
+                                        <div class="fw-semibold">{{ $noti->data['title'] ?? 'Thông báo mới' }}</div>
+                                        <small class="text-muted">{{ $noti->data['message'] ?? '' }}</small>
+                                        <div class="text-muted small">{{ \Carbon\Carbon::parse($noti->created_at)->diffForHumans() }}</div>
+                                    </a>
+                                </li>
+                            @endforeach
+                        @endif
+                    </ul>
+                </div>
+            @endif
 
     <!-- Main content -->
     <div class="content">
         <header class="bg-white border-bottom p-3 d-flex justify-content-between align-items-center shadow-sm">
             <h4 class="mb-0">@yield('header', 'Trang chủ')</h4>
             <div class="d-flex align-items-center gap-3">
-                <i class="fa fa-bell text-secondary"></i>
+                <div class="dropdown me-3">
+                    <a href="#" class="text-decoration-none text-dark position-relative" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa fa-bell fs-5"></i>
+                        @if(session('notifications') && count(session('notifications')) > 0)
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ count(session('notifications')) }}
+                            </span>
+                        @endif
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li class="dropdown-header fw-bold">Thông báo</li>
+                        @forelse (session('notifications', []) as $notify)
+                            <li><span class="dropdown-item small">{{ $notify }}</span></li>
+                        @empty
+                            <li><span class="dropdown-item small text-muted">Không có thông báo mới</span></li>
+                        @endforelse
+                    </ul>
+                </div>
                 <div class="dropdown">
                     <a href="#" class="d-flex align-items-center text-decoration-none text-dark" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <img src="https://i.pravatar.cc/40" class="rounded-circle me-2" alt="">

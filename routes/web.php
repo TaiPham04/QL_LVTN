@@ -195,3 +195,30 @@ Route::middleware(['auth', 'lecturer'])
         Route::post('/assignments/store', [App\Http\Controllers\LecturerAssignmentController::class, 'store'])
             ->name('assignments.store');
     });
+
+Route::post('/lecturers/assignments/delete', [LecturerAssignmentController::class, 'deleteSelected'])
+    ->name('lecturers.assignments.delete');
+
+Route::post('/lecturers/send-to-admin', [LecturerAssignmentController::class, 'sendToAdmin'])
+    ->name('lecturers.sendToAdmin');
+
+    Route::middleware(['auth', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+
+        // 👇 Danh sách đề tài (nhận từ giảng viên)
+        Route::get('/topics', [AdminController::class, 'topics'])->name('topics.index');
+    });
+
+    
+    Route::middleware(['auth', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+
+        // ✅ Danh sách đề tài
+        Route::get('/topics', [AdminController::class, 'topics'])->name('topics');
+    });
