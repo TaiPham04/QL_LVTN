@@ -15,22 +15,13 @@
     @endif
 
     {{-- Hàng nút điều khiển --}}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex gap-2">
-            <button form="assignmentForm" type="submit" class="btn btn-success">
-                Lưu phân công
-            </button>
-            <button type="button" class="btn btn-danger" id="deleteButton">
-                Xóa thông tin
-            </button>
-        </div>
-
-        <form action="{{ route('lecturers.sendToAdmin') }}" method="POST" class="m-0">
-            @csrf
-            <button type="submit" class="btn btn-primary">
-                Gửi đề tài cho Admin
-            </button>
-        </form>
+    <div class="d-flex justify-content-start gap-2 mb-3">
+        <button form="assignmentForm" type="submit" class="btn btn-success">
+            <i class="bi bi-save"></i> Lưu phân công
+        </button>
+        <button type="button" class="btn btn-danger" id="deleteButton">
+            <i class="bi bi-trash"></i> Xóa thông tin
+        </button>
     </div>
 
     {{-- Form lưu phân công (chứa toàn bộ bảng) --}}
@@ -40,7 +31,7 @@
             <thead class="table-light">
                 <tr>
                     <th style="width: 40px; text-align:center;">
-                        <input type="checkbox" id="selectAll"> {{-- ✅ Checkbox "Chọn tất cả" --}}
+                        <input type="checkbox" id="selectAll">
                     </th>
                     <th>MSSV</th>
                     <th>Họ tên</th>
@@ -53,7 +44,7 @@
                 @foreach ($students as $sv)
                     <tr>
                         <td class="text-center">
-                            <input type="checkbox" name="students[]" value="{{ $sv->mssv }}">
+                            <input type="checkbox" name="students[]" value="{{ $sv->mssv }}" class="student-checkbox">
                         </td>
                         <td>{{ $sv->mssv }}</td>
                         <td>{{ $sv->hoten }}</td>
@@ -79,17 +70,17 @@
     </form>
 </div>
 
-{{-- ✅ JS xử lý nút XÓA và "Chọn tất cả" --}}
+{{-- JS xử lý nút XÓA và "Chọn tất cả" --}}
 <script>
-    // --- Xử lý checkbox "Chọn tất cả" ---
+    // Xử lý checkbox "Chọn tất cả"
     document.getElementById('selectAll').addEventListener('change', function () {
         const checked = this.checked;
-        document.querySelectorAll('input[name="students[]"]').forEach(cb => cb.checked = checked);
+        document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checked);
     });
 
-    // --- Xử lý nút XÓA ---
+    // Xử lý nút XÓA
     document.getElementById('deleteButton').addEventListener('click', function () {
-        const selected = Array.from(document.querySelectorAll('input[name="students[]"]:checked'))
+        const selected = Array.from(document.querySelectorAll('.student-checkbox:checked'))
             .map(cb => cb.value);
 
         if (selected.length === 0) {

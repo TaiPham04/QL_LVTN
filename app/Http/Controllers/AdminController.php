@@ -12,37 +12,66 @@ class AdminController extends Controller
         return view('layouts.app');
     }
 
-    // 👇 Hiển thị danh sách đề tài giảng viên gửi lên
+    // 👇 Hiển thị danh sách đề tài
     public function topics(Request $request)
     {
-        // 🔹 Lọc theo giảng viên nếu có chọn
+        // 🔹 Lọc theo giảng viên và trạng thái
         $selectedLecturer = $request->input('lecturer');
+        $selectedStatus = $request->input('status');
 
-        $query = DB::table('detai_admin')
-            ->leftJoin('sinhvien', 'detai_admin.mssv', '=', 'sinhvien.mssv')
-            ->leftJoin('giangvien', 'detai_admin.magv', '=', 'giangvien.magv')
+        $query = DB::table('detai')
+            ->leftJoin('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
+            ->leftJoin('giangvien', 'detai.magv', '=', 'giangvien.magv')
             ->select(
-                'sinhvien.mssv',
-                'detai_admin.tendt',
-                'giangvien.hoten as tengv',
-                'detai_admin.created_at'
+                'detai.mssv',
+                'sinhvien.hoten as tensv',
+                'detai.nhom',
+                'detai.tendt',
+                'giangvien.hoten as tengv'
             )
-            ->orderByDesc('detai_admin.created_at');
+            ->orderBy('detai.nhom')
+            ->orderBy('sinhvien.hoten');
 
-        // Nếu có lọc theo giảng viên
+        // Lọc theo giảng viên
         if (!empty($selectedLecturer)) {
             $query->where('giangvien.hoten', $selectedLecturer);
         }
 
+        // Lọc theo trạng thái đề tài
+        if ($selectedStatus === 'co_detai') {
+            $query->whereNotNull('detai.tendt')
+                  ->where('detai.tendt', '!=', '');
+        } elseif ($selectedStatus === 'chua_detai') {
+            $query->where(function($q) {
+                $q->whereNull('detai.tendt')
+                  ->orWhere('detai.tendt', '');
+            });
+        }
+
         $topics = $query->get();
 
-        // 🔹 Lấy danh sách tất cả giảng viên để hiển thị trong select box
+        // Group theo nhóm
+        $groupedTopics = $topics->groupBy('nhom')->map(function ($items, $nhom) {
+            $first = $items->first();
+            return [
+                'nhom' => $nhom ?? 'Chưa có',
+                'tendt' => $first->tendt,
+                'tengv' => $first->tengv,
+                'students' => $items->map(function ($item) {
+                    return [
+                        'mssv' => $item->mssv,
+                        'tensv' => $item->tensv
+                    ];
+                })->toArray()
+            ];
+        })->values();
+
+        // 🔹 Lấy danh sách giảng viên
         $lecturers = DB::table('giangvien')
             ->select('hoten as tengv')
             ->orderBy('hoten')
             ->get();
 
-        return view('admin.topics.index', compact('topics', 'lecturers'));
+        return view('admin.topics.index', compact('groupedTopics', 'lecturers'));
     }
-
 }

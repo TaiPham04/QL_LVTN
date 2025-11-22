@@ -47,7 +47,30 @@ class LecturerAssignmentController extends Controller
         return view('assignments.lecturer-form', compact('students'));
     }
 
-
+    // 🔹 Hàm tạo mã nhóm mới theo format: 01TH8235
+    // $magv: mã giảng viên, $mssv: mã số sinh viên đầu tiên trong nhóm
+    private function generateGroupCode($magv, $mssv)
+    {
+        // 🔹 Lấy 2 ký tự cuối của mã giảng viên, padding thêm số 0 nếu thiếu
+        // VD: "1" -> "01", "25" -> "25", "GV01" -> "01"
+        $magvLength = strlen($magv);
+        if ($magvLength >= 2) {
+            $lecturerSuffix = substr($magv, -2);
+        } else {
+            $lecturerSuffix = str_pad($magv, 2, '0', STR_PAD_LEFT);
+        }
+        
+        // 🔹 Lấy 4 ký tự cuối của MSSV
+        // VD: "20198235" -> "8235", "123" -> "0123"
+        $mssvLength = strlen($mssv);
+        if ($mssvLength >= 4) {
+            $studentSuffix = substr($mssv, -4);
+        } else {
+            $studentSuffix = str_pad($mssv, 4, '0', STR_PAD_LEFT);
+        }
+        
+        return $lecturerSuffix . 'TH' . $studentSuffix;
+    }
 
     // Lưu nhóm và giảng viên
     public function store(Request $request)
@@ -110,10 +133,9 @@ class LecturerAssignmentController extends Controller
 
             $groupNumber = $existingRecord->nhom ?? null;
 
-            // Nếu chưa có nhóm → tạo mới
+            // 🔹 Nếu chưa có nhóm → tạo mới với format 01TH8235
             if (!$groupNumber) {
-                $maxGroup = DB::table('detai')->where('magv', $lecturer->magv)->max('nhom');
-                $groupNumber = $maxGroup ? $maxGroup + 1 : 1;
+                $groupNumber = $this->generateGroupCode($lecturer->magv, $firstStudent);
             }
 
             // 🔹 Lấy đề tài & trạng thái từ input

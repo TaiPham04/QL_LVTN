@@ -16,13 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'lecturer' => \App\Http\Middleware\LecturersMiddleware::class,
+            'lecturers' => \App\Http\Middleware\LecturersMiddleware::class, // ✅ Thêm chữ 's'
         ]);
-
-        //chạy cho toàn bộ web
-        // $middleware->appendToGroup('web', [
-        //     \App\Http\Middleware\YourGlobalMiddleware::class,
-        // ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

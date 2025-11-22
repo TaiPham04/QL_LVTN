@@ -13,7 +13,7 @@
         class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('timeline.index') ? 'text-primary fw-bold' : '' }}">
             Quản lý mốc thời gian
         </a>
-        <a href="{{ route('admin.topics') }}" 
+        <a href="{{ route('admin.topics.index') }}" 
         class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.topics.index') ? 'text-primary fw-bold' : '' }}">
             Danh sách đề tài
         </a>
@@ -47,9 +47,22 @@
         <i class="fa fa-chevron-down small"></i>
     </a>
     <div class="collapse ps-4" id="assignMenu">
-        <a href="{{ route('assignments.form') }}" class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('assignments.form') ? 'text-primary fw-bold' : '' }}">Phân Giảng Viên</a>
-        <a href="{{ route('assignments.index') }}" class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('assignments.index') ? 'text-primary fw-bold' : '' }}">Bảng Phân Công</a>
+        <a href="{{ route('assignments.form') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('assignments.form') ? 'text-primary fw-bold' : '' }}">
+        Phân Giảng Viên
+        </a>
+
+        <a href="{{ route('assignments.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('assignments.index') ? 'text-primary fw-bold' : '' }}">
+        Bảng Phân Công
+        </a>
+
+        <a href="{{ route('admin.phanbien.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('phanbien.index') ? 'text-primary fw-bold' : '' }}">
+        Phân Công Phản Biện
+        </a>
     </div>
+
 
     {{-- Menu cài đặt --}}
     <a class="d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#settingsMenu" role="button" aria-expanded="false" aria-controls="settingsMenu">
