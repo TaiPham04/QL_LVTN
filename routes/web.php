@@ -158,3 +158,7 @@ Route::controller(AssignmentController::class)
 */
 Route::get('/timeline', fn() => view('dashboard'))->name('timeline.index');
 Route::get('/settings', fn() => view('dashboard'))->name('settings.index');
+
+// Điểm giữa kỳ
+Route::get('/diem-giuaky', [App\Http\Controllers\DiemGiuaKyController::class, 'index'])->name('lecturers.diemgiuaky.index');
+Route::post('/diem-giuaky/store', [App\Http\Controllers\DiemGiuaKyController::class, 'store'])->name('lecturers.diemgiuaky.store');
