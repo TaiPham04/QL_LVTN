@@ -23,6 +23,12 @@ class AuthController extends Controller
         $user = User::where('username', $request->username)->first();
 
         if ($user && Hash::check($request->password, $user->password)) {
+            
+            // Kiểm tra nếu là giảng viên mà không có magv
+            if ($user->role === 'giangvien' && empty($user->magv)) {
+                return back()->with('error', 'Tài khoản giảng viên chưa được cấu hình mã giảng viên');
+            }
+            
             session(['user' => $user]);
 
             // Điều hướng theo role

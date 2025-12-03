@@ -83,9 +83,24 @@ Route::middleware(['auth', 'lecturers'])
         Route::get('/assignments/form', [LecturerAssignmentController::class, 'index'])->name('assignments.form');
         Route::post('/assignments/store', [LecturerAssignmentController::class, 'store'])->name('assignments.store');
         Route::post('/assignments/delete', [LecturerAssignmentController::class, 'deleteSelected'])->name('assignments.delete');
+
+        Route::prefix('cham-diem-huong-dan')->name('chamdiem.huongdan.')->group(function () {
+            Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexHuongDan'])->name('index');
+            Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formHuongDan'])->name('form');
+            Route::post('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'storeHuongDan'])->name('store');
+            Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportHuongDan'])->name('export');
+        });
+
+        // === CHẤM ĐIỂM PHẢN BIỆN ===
+        Route::prefix('cham-diem-phan-bien')->name('chamdiem.phanbien.')->group(function () {
+            Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexPhanBien'])->name('index');
+            Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formPhanBien'])->name('form');
+            Route::post('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'storePhanBien'])->name('store');
+            Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportPhanBien'])->name('export');
+        });
         
         // Gửi đề tài cho admin
-        Route::post('/send-to-admin', [LecturerAssignmentController::class, 'sendToAdmin'])->name('sendToAdmin');
+        // Route::post('/send-to-admin', [LecturerAssignmentController::class, 'sendToAdmin'])->name('sendToAdmin');
     });
 
 

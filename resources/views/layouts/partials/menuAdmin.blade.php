@@ -3,6 +3,7 @@
         <i class="fa fa-home me-2"></i> Dashboard
     </a>
 
+    <!-- Các Mốc Thời Gian -->
     <a class="d-flex justify-content-between align-items-center" 
         data-bs-toggle="collapse" href="#timelineMenu" role="button" aria-expanded="false" aria-controls="timelineMenu">
         <span><i class="fa fa-clock me-2"></i> Các Mốc Thời Gian</span>
@@ -19,6 +20,7 @@
         </a>
     </div>
 
+    <!-- Sinh Viên -->
     <a class="d-flex justify-content-between align-items-center" 
         data-bs-toggle="collapse" href="#svMenu" role="button" aria-expanded="false" aria-controls="svMenu">
         <span><i class="fa fa-users me-2"></i> Sinh Viên</span>
@@ -30,6 +32,7 @@
         <a href="{{ route('students.index') }}" class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('students.index') ? 'text-primary fw-bold' : '' }}">Danh sách sinh viên</a>
     </div>
 
+    <!-- Giảng Viên -->
     <a class="d-flex justify-content-between align-items-center" 
         data-bs-toggle="collapse" href="#gvMenu" role="button" aria-expanded="false" aria-controls="gvMenu">
         <span><i class="fa fa-chalkboard-teacher me-2"></i> Giảng Viên</span>
@@ -41,6 +44,7 @@
         <a href="{{ route('lecturers.index') }}" class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('lecturers.index') ? 'text-primary fw-bold' : '' }}">Danh sách giảng viên</a>
     </div>
 
+    <!-- Phân Công -->
     <a class="d-flex justify-content-between align-items-center" 
         data-bs-toggle="collapse" href="#assignMenu" role="button" aria-expanded="false" aria-controls="assignMenu">
         <span><i class="fa fa-tasks me-2"></i> Phân Công</span>
@@ -58,22 +62,23 @@
         </a>
 
         <a href="{{ route('admin.phanbien.index') }}" 
-        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('phanbien.index') ? 'text-primary fw-bold' : '' }}">
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.phanbien.index') ? 'text-primary fw-bold' : '' }}">
         Phân Công Phản Biện
         </a>
     </div>
 
-
-    {{-- Menu cài đặt --}}
+    <!-- Cài Đặt -->
     <a class="d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#settingsMenu" role="button" aria-expanded="false" aria-controls="settingsMenu">
         <span><i class="fa fa-cog me-2"></i> Cài Đặt</span>
         <i class="fa fa-chevron-down small"></i>
     </a>
     <div class="collapse ps-4" id="settingsMenu">
         <a href="{{ route('settings.index') }}" class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('settings.index') ? 'text-primary fw-bold' : '' }}">Cấu hình hệ thống</a>
-        <form action="{{ route('logout') }}" method="POST" class="d-block py-1">
-            @csrf
-            <button type="submit" class="btn btn-link text-danger text-decoration-none p-0">Đăng xuất</button>
-        </form>
+        
+        <!-- Đăng xuất - SỬ DỤNG HÀM globalLogout() -->
+        <a href="#" onclick="globalLogout(event); return false;" 
+           class="d-block py-1 text-decoration-none text-danger">
+            <i class="fa fa-sign-out-alt me-2"></i> Đăng xuất
+        </a>
     </div>
 </ul>

@@ -45,12 +45,10 @@
         }
     </style>
 </head>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <body>
-        @php
-            $user = session('user');
-        @endphp
-
+    @php
+        $user = session('user');
+    @endphp
 
     <!-- Sidebar -->
     <div class="sidebar">
@@ -74,44 +72,12 @@
         @endswitch
     </div>
 
-@if($role === 'admin' && auth()->check())
-                @php
-                    $notifications = auth()->user()->unreadNotifications ?? collect();
-                @endphp
-
-                <div class="dropdown">
-                    <a href="#" class="text-decoration-none text-dark position-relative" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fa fa-bell fs-5"></i>
-                        @if($notifications->count() > 0)
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                {{ $notifications->count() }}
-                            </span>
-                        @endif
-                    </a>
-
-                    <ul class="dropdown-menu dropdown-menu-end p-0 notification-dropdown">
-                        @if($notifications->isEmpty())
-                            <li class="p-3 text-center text-secondary">Không có thông báo mới</li>
-                        @else
-                            @foreach($notifications as $noti)
-                                <li class="border-bottom">
-                                    <a href="#" class="dropdown-item py-2">
-                                        <div class="fw-semibold">{{ $noti->data['title'] ?? 'Thông báo mới' }}</div>
-                                        <small class="text-muted">{{ $noti->data['message'] ?? '' }}</small>
-                                        <div class="text-muted small">{{ \Carbon\Carbon::parse($noti->created_at)->diffForHumans() }}</div>
-                                    </a>
-                                </li>
-                            @endforeach
-                        @endif
-                    </ul>
-                </div>
-            @endif
-
     <!-- Main content -->
     <div class="content">
         <header class="bg-white border-bottom p-3 d-flex justify-content-between align-items-center shadow-sm">
             <h4 class="mb-0">@yield('header', 'Trang chủ')</h4>
             <div class="d-flex align-items-center gap-3">
+                <!-- Thông báo -->
                 <div class="dropdown me-3">
                     <a href="#" class="text-decoration-none text-dark position-relative" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fa fa-bell fs-5"></i>
@@ -130,6 +96,8 @@
                         @endforelse
                     </ul>
                 </div>
+
+                <!-- User Dropdown -->
                 <div class="dropdown">
                     <a href="#" class="d-flex align-items-center text-decoration-none text-dark" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <img src="https://i.pravatar.cc/40" class="rounded-circle me-2" alt="">
@@ -148,5 +116,36 @@
         </footer>
     </div>
 
+    <!-- Form đăng xuất chung cho toàn bộ app -->
+    <form id="global-logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+        @csrf
+    </form>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Hàm đăng xuất toàn cục
+        function globalLogout(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                document.getElementById('global-logout-form').submit();
+            }
+            return false;
+        }
+
+        // Bỏ qua tất cả validation cho logout
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutForm = document.getElementById('global-logout-form');
+            if (logoutForm) {
+                logoutForm.addEventListener('submit', function(e) {
+                    e.stopImmediatePropagation();
+                });
+            }
+        });
+    </script>
 </body>
 </html>

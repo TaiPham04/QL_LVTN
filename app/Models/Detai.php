@@ -21,4 +21,40 @@ class Detai extends Model
         'nhom',
         'trangthai',
     ];
+
+    // === RELATIONSHIPS ===
+    
+    public function sinhVien()
+    {
+        return $this->belongsTo(Student::class, 'mssv', 'mssv');
+    }
+
+    public function giangVien()
+    {
+        return $this->belongsTo(Lecturer::class, 'magv', 'magv');
+    }
+
+    // === HELPER METHODS ===
+    
+    // Lấy TẤT CẢ sinh viên trong cùng 1 nhóm
+    public static function getSinhVienByNhom($nhom)
+    {
+        return self::where('detai.nhom', $nhom)
+            ->join('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
+            ->select('sinhvien.*', 'detai.tendt', 'detai.nhom', 'detai.madt')
+            ->orderBy('sinhvien.mssv')
+            ->get();
+    }
+
+    // Lấy thông tin đề tài theo nhóm
+    public static function getDeTaiByNhom($nhom)
+    {
+        return self::where('nhom', $nhom)->first();
+    }
+
+    // Đếm số sinh viên trong nhóm
+    public static function countSinhVienInNhom($nhom)
+    {
+        return self::where('nhom', $nhom)->count();
+    }
 }
