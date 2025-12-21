@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Student;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\StudentsImport;
+use App\Services\StudentExportService;
 
 class StudentController extends Controller
 {
@@ -132,6 +133,11 @@ class StudentController extends Controller
         $student->update($request->all());
 
         return redirect()->route('students.edit.list')->with('success', 'Cập nhật thông tin sinh viên thành công!');
+    }
+
+    public function export()
+    {
+        return Excel::download(new StudentExportService, 'SinhVien.xlsx', \Maatwebsite\Excel\Excel::XLSX);
     }
 
 }

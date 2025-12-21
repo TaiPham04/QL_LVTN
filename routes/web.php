@@ -178,6 +178,8 @@ Route::controller(StudentController::class)
         Route::put('/{mssv}', 'update')->name('update');
     });
 
+Route::get('/students/export', [StudentController::class, 'export'])->name('students.export')->middleware('auth');
+
 
 
 /*

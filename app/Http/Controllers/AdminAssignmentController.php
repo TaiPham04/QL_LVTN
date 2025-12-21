@@ -19,7 +19,15 @@ class AdminAssignmentController extends Controller
             $query = DB::table('sinhvien')
                 ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
                 ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv');
+                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+                ->select(
+                    'sinhvien.mssv',
+                    'sinhvien.hoten',
+                    'sinhvien.lop',
+                    'phancong.magv',
+                    'giangvien.hoten as tengiangvien',
+                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+                );
         } elseif ($status === 'unassigned') {
             $query = DB::table('sinhvien')
                 ->whereNotExists(function($subquery) {
@@ -27,23 +35,29 @@ class AdminAssignmentController extends Controller
                         ->from('phancong')
                         ->whereColumn('phancong.mssv', 'sinhvien.mssv');
                 })
-                ->leftJoin('giangvien', DB::raw('1'), '=', DB::raw('0'))
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv');
+                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+                ->select(
+                    'sinhvien.mssv',
+                    'sinhvien.hoten',
+                    'sinhvien.lop',
+                    DB::raw('NULL as magv'),
+                    DB::raw('NULL as tengiangvien'),
+                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+                );
         } else {
             $query = DB::table('sinhvien')
                 ->leftJoin('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
                 ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv');
+                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+                ->select(
+                    'sinhvien.mssv',
+                    'sinhvien.hoten',
+                    'sinhvien.lop',
+                    'phancong.magv',
+                    'giangvien.hoten as tengiangvien',
+                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+                );
         }
-
-        $query->select(
-            'sinhvien.mssv',
-            'sinhvien.hoten',
-            'sinhvien.lop',
-            'phancong.magv',
-            'giangvien.hoten as tengiangvien',
-            DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
-        );
 
         // 🔍 Tìm kiếm
         if ($request->has('search') && !empty($request->input('search'))) {
@@ -54,8 +68,8 @@ class AdminAssignmentController extends Controller
             });
         }
 
-        // 🔍 Lọc theo giảng viên
-        if ($request->has('magv') && !empty($request->input('magv'))) {
+        // 🔍 Lọc theo giảng viên (chỉ khi status là 'assigned' hoặc không có status)
+        if ($request->has('magv') && !empty($request->input('magv')) && $status !== 'unassigned') {
             $query->where('phancong.magv', $request->input('magv'));
         }
 
@@ -125,7 +139,7 @@ class AdminAssignmentController extends Controller
                     DB::table('phancong')->insert([
                         'mssv' => $mssv,
                         'magv' => $magv,
-                        'tg_phancong' => now(),
+                        'lg_phancong' => now(),
                     ]);
                     $successCount++;
                 } else {

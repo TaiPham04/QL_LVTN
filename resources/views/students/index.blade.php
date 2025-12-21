@@ -7,7 +7,9 @@
     <div class="d-flex justify-content-between mb-3">
         <h4>Danh sách sinh viên</h4>
         <div>
-            <a href="" class="btn btn-success">Xuất file excel</a>
+            <a href="{{ route('students.export') }}" class="btn btn-success" download>
+                <i class="fa fa-file-excel me-1"></i> Xuất file excel
+            </a>
 
             {{-- Chỉ hiển thị nút thêm sinh viên nếu là admin --}}
             @if(session('user') && session('user')->role === 'admin')
