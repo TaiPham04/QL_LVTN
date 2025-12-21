@@ -47,14 +47,6 @@
                 @enderror
             </div>
 
-            <div class="flex items-center justify-between mt-4">
-                <label class="flex items-center text-sm text-gray-600">
-                    <input type="checkbox" class="mr-2 rounded" name="remember">
-                    Ghi nhớ đăng nhập
-                </label>
-                <a href="#" class="text-sm text-blue-600 hover:underline">Quên mật khẩu?</a>
-            </div>
-
             <button type="submit"
                 class="w-full bg-blue-600 text-white py-2.5 mt-4 rounded-lg hover:bg-blue-700 transition-all duration-200">
                 Đăng nhập

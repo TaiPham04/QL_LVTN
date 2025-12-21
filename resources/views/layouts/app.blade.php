@@ -75,10 +75,10 @@
     <!-- Main content -->
     <div class="content">
         <header class="bg-white border-bottom p-3 d-flex justify-content-between align-items-center shadow-sm">
-            <h4 class="mb-0">@yield('header', 'Trang chủ')</h4>
-            <div class="d-flex align-items-center gap-3">
-                <!-- Thông báo -->
-                <div class="dropdown me-3">
+            <!-- Chuông + User Dropdown nằm bên phải -->
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <!-- Chuông thông báo -->
+                <div class="dropdown">
                     <a href="#" class="text-decoration-none text-dark position-relative" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fa fa-bell fs-5"></i>
                         @if(session('notifications') && count(session('notifications')) > 0)

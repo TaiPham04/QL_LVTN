@@ -9,7 +9,7 @@ class AdminController extends Controller
 {
     public function index()
     {
-        return view('layouts.app');
+        return view('admin.dashboard');
     }
 
     // 👇 Hiển thị danh sách đề tài

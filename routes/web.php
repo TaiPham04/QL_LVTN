@@ -5,10 +5,10 @@ use App\Http\Controllers\{
     AuthController,
     AdminController,
     LecturerController,
-    LecturerAssignmentController,
     StudentController,
-    AssignmentController,
-    PhanBienController
+    PhanBienController,
+    AdminAssignmentController,
+    LecturerAssignmentsController
 };
 
 /*
@@ -17,7 +17,6 @@ use App\Http\Controllers\{
 |--------------------------------------------------------------------------
 */
 
-// Trang chủ - tự động điều hướng theo vai trò
 Route::get('/', function () {
     $user = session('user');
     if (!$user) {
@@ -34,7 +33,6 @@ Route::get('/', function () {
     }
 });
 
-// Đăng nhập / đăng xuất
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -52,12 +50,30 @@ Route::middleware(['auth', 'admin'])
     ->group(function () {
         Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
         
-        // Danh sách đề tài
         Route::get('/topics', [AdminController::class, 'topics'])->name('topics.index');
         
-        // Phân công phản biện
+        Route::prefix('assignments')->name('assignments.')->group(function () {
+            Route::get('/', [AdminAssignmentController::class, 'index'])->name('index');
+            Route::get('/form', [AdminAssignmentController::class, 'form'])->name('form');
+            Route::post('/store', [AdminAssignmentController::class, 'store'])->name('store');
+            Route::delete('/{mssv}', [AdminAssignmentController::class, 'destroy'])->name('destroy');
+        });
+        
         Route::get('/phanbien', [PhanBienController::class, 'index'])->name('phanbien.index');
         Route::post('/phanbien/store', [PhanBienController::class, 'store'])->name('phanbien.store');
+
+        Route::prefix('hoidong')->name('hoidong.')->group(function () {
+            Route::get('/', [App\Http\Controllers\HoiDongController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\HoiDongController::class, 'create'])->name('create');
+            Route::post('/store', [App\Http\Controllers\HoiDongController::class, 'store'])->name('store');
+            Route::get('/{mahd}', [App\Http\Controllers\HoiDongController::class, 'show'])->name('show');
+            Route::delete('/{mahd}', [App\Http\Controllers\HoiDongController::class, 'destroy'])->name('destroy');
+            
+            Route::get('/{mahd}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongForm'])->name('phancong.form');
+            Route::post('/{mahd}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongStore'])->name('phancong.store');
+            Route::delete('/{mahd}/phan-cong/{nhom}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
+            Route::get('/{mahd}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
+        });
     });
 
 
@@ -76,14 +92,22 @@ Route::middleware(['auth', 'lecturers'])
             return view('lecturers.home');
         })->name('home');
 
-        // Danh sách sinh viên
         Route::get('/students', [StudentController::class, 'index'])->name('students.index');
 
-        // Nhóm & Đề tài
-        Route::get('/assignments/form', [LecturerAssignmentController::class, 'index'])->name('assignments.form');
-        Route::post('/assignments/store', [LecturerAssignmentController::class, 'store'])->name('assignments.store');
-        Route::post('/assignments/delete', [LecturerAssignmentController::class, 'deleteSelected'])->name('assignments.delete');
+        // Phân công đề tài
+        Route::prefix('assignments')->name('assignments.')->group(function () {
+            Route::get('/', [LecturerAssignmentsController::class, 'index'])->name('index');
+            Route::get('/form', [LecturerAssignmentsController::class, 'form'])->name('form');
+            Route::post('/store', [LecturerAssignmentsController::class, 'store'])->name('store');
+            Route::get('/{nhom}', [LecturerAssignmentsController::class, 'show'])->name('show');
+            Route::get('/{nhom}/edit', [LecturerAssignmentsController::class, 'edit'])->name('edit');
+            Route::put('/{nhom}', [LecturerAssignmentsController::class, 'update'])->name('update');
+            Route::delete('/{nhom}', [LecturerAssignmentsController::class, 'destroy'])->name('destroy');
+            Route::post('/update-all-status', [LecturerAssignmentsController::class, 'updateAllStatus'])->name('update-all-status');
+            Route::post('/{nhom}/update-status', [LecturerAssignmentsController::class, 'updateStatus'])->name('updateStatus');
+        });
 
+        // Chấm điểm hướng dẫn
         Route::prefix('cham-diem-huong-dan')->name('chamdiem.huongdan.')->group(function () {
             Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexHuongDan'])->name('index');
             Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formHuongDan'])->name('form');
@@ -91,16 +115,46 @@ Route::middleware(['auth', 'lecturers'])
             Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportHuongDan'])->name('export');
         });
 
-        // === CHẤM ĐIỂM PHẢN BIỆN ===
+        // Chấm điểm phản biện
         Route::prefix('cham-diem-phan-bien')->name('chamdiem.phanbien.')->group(function () {
             Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexPhanBien'])->name('index');
             Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formPhanBien'])->name('form');
             Route::post('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'storePhanBien'])->name('store');
             Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportPhanBien'])->name('export');
         });
+
+        // Điểm giữa kỳ
+        Route::get('/diem-giuaky', [App\Http\Controllers\DiemGiuaKyController::class, 'index'])->name('diemgiuaky.index');
+        Route::post('/diem-giuaky/store', [App\Http\Controllers\DiemGiuaKyController::class, 'store'])->name('diemgiuaky.store');
+        Route::get('/diem-giuaky/export', [App\Http\Controllers\DiemGiuaKyController::class, 'export'])->name('diemgiuaky.export');
         
-        // Gửi đề tài cho admin
-        // Route::post('/send-to-admin', [LecturerAssignmentController::class, 'sendToAdmin'])->name('sendToAdmin');
+        // Nhiệm vụ
+        Route::prefix('nhiemvu')->name('nhiemvu.')->group(function () {
+            Route::get('/', [App\Http\Controllers\NhiemVuController::class, 'index'])->name('index');
+            Route::get('/{nhom}/create', [App\Http\Controllers\NhiemVuController::class, 'create'])->name('create');
+            Route::post('/store', [App\Http\Controllers\NhiemVuController::class, 'store'])->name('store');
+            Route::get('/{nhom}/export', [App\Http\Controllers\NhiemVuController::class, 'exportWord'])->name('export');
+        });
+
+        // ✅ CHẤM ĐIỂM HỘI ĐỒNG
+        Route::prefix('cham-diem/hoi-dong')->name('cham-diem.hoi-dong.')->controller(\App\Http\Controllers\ChamDiemHoiDongController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/{mahd}/form', 'form')->name('form');
+            Route::post('/{mahd}', 'store')->name('store');
+            Route::get('/{mahd}/export-excel', 'exportExcel')->name('export-excel');
+        });
+
+        // ✅ QUẢN LÝ GIẢNG VIÊN (Giảng viên tự quản lý profile)
+        Route::prefix('profile')->name('profile.')->controller(LecturerController::class)->group(function () {
+            Route::get('/edit/{magv}', 'edit')->name('edit');
+            Route::post('/update/{magv}', 'update')->name('update');
+        });
+
+        // Route Điểm Tổng Kết
+        Route::prefix('tong-ket')->name('tong-ket.')->controller(\App\Http\Controllers\TongKetController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/{mahd}/export-excel', 'exportExcel')->name('export-excel');
+        });
     });
 
 
@@ -128,12 +182,13 @@ Route::controller(StudentController::class)
 
 /*
 |--------------------------------------------------------------------------
-| ROUTE QUẢN LÝ GIẢNG VIÊN (ADMIN)
+| ROUTE QUẢN LÝ GIẢNG VIÊN (CHO ADMIN)
 |--------------------------------------------------------------------------
 */
-Route::controller(LecturerController::class)
-    ->prefix('lecturers')
-    ->name('lecturers.')
+Route::middleware(['auth', 'admin'])
+    ->controller(LecturerController::class)
+    ->prefix('admin/lecturers')
+    ->name('admin.lecturers.')
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/create', 'create')->name('create');
@@ -142,38 +197,22 @@ Route::controller(LecturerController::class)
         Route::get('/edit/{magv}', 'edit')->name('edit');
         Route::post('/update/{magv}', 'update')->name('update');
         Route::get('/delete/{id}', 'destroy')->name('delete');
+        Route::post('/import', 'import')->name('import');
     });
 
-// Route riêng cho import (để tương thích với view cũ)
-Route::post('/lecturers/import', [LecturerController::class, 'import'])->name('lecturersManagement.import');
-
-
-
-/*
-|--------------------------------------------------------------------------
-| ROUTE PHÂN CÔNG (ADMIN)
-|--------------------------------------------------------------------------
-*/
-Route::controller(AssignmentController::class)
-    ->prefix('assignments')
-    ->name('assignments.')
+// Alias routes để View dùng lecturers.* được
+Route::middleware(['auth', 'admin'])
+    ->controller(LecturerController::class)
+    ->name('lecturers.')
     ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/form', 'showForm')->name('form');
-        Route::post('/save', 'save')->name('save');
-        Route::post('/bulk-save', 'bulkSave')->name('bulkSave');
+        Route::get('/lecturers/create', 'create')->name('create');
+        Route::post('/lecturers/store', 'store')->name('store');
+        Route::get('/lecturers/edit-list', 'editList')->name('edit.list');
+        Route::get('/lecturers/edit/{magv}', 'edit')->name('edit');
+        Route::post('/lecturers/update/{magv}', 'update')->name('update');
+        Route::post('/lecturers/import', 'import')->name('import');
     });
 
-
-
-/*
-|--------------------------------------------------------------------------
-| ROUTE KHÁC
-|--------------------------------------------------------------------------
-*/
-Route::get('/timeline', fn() => view('dashboard'))->name('timeline.index');
-Route::get('/settings', fn() => view('dashboard'))->name('settings.index');
-
-// Điểm giữa kỳ
-Route::get('/diem-giuaky', [App\Http\Controllers\DiemGiuaKyController::class, 'index'])->name('lecturers.diemgiuaky.index');
-Route::post('/diem-giuaky/store', [App\Http\Controllers\DiemGiuaKyController::class, 'store'])->name('lecturers.diemgiuaky.store');
+Route::post('/lecturers/import', [LecturerController::class, 'import'])
+    ->middleware(['auth', 'admin'])
+    ->name('lecturersManagement.import');

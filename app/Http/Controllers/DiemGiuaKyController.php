@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\DiemGiuaKyExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DiemGiuaKyController extends Controller
 {
@@ -114,5 +116,27 @@ class DiemGiuaKyController extends Controller
         }
 
         return redirect()->back()->with('success', "Đã lưu đánh giá cho {$count} sinh viên!");
+    }
+
+    
+
+    public function export()
+    {
+        $user = session('user');
+        $lecturer = DB::table('giangvien')->where('email', $user->email)->first();
+        
+        if (!$lecturer) {
+            return back()->with('error', 'Không tìm thấy thông tin giảng viên!');
+        }
+
+        try {
+            $exporter = new DiemGiuaKyExport();
+            $filePath = $exporter->export($lecturer->magv);
+            
+            return response()->download($filePath)->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            return back()->with('error', 'Không thể xuất file Excel: ' . $e->getMessage());
+        }
     }
 }
