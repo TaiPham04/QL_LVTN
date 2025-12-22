@@ -47,6 +47,7 @@
                             @if(in_array($item['hoiDong']->vai_tro, ['chu_tich', 'thu_ky']))
                                 <button type="button" 
                                         class="btn btn-success btn-sm export-excel-btn"
+                                        data-hoidong-id="{{ $item['hoiDong']->hoidong_id }}"
                                         data-mahd="{{ $item['hoiDong']->mahd }}"
                                         title="Xuất Excel">
                                     <i class="fa fa-file-excel me-1"></i>Xuất Excel
@@ -138,11 +139,13 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             
-            const mahd = this.dataset.mahd;
-            // Dùng route helper thay vì URL cứng
-            const url = "{{ route('lecturers.tong-ket.export-excel', ':mahd') }}".replace(':mahd', mahd);
+            const hoidongId = this.dataset.hoidongId;  // ✅ Lấy hoidong_id (số)
+            const mahd = this.dataset.mahd;             // Cho hiển thị trong tên file
             
-            console.log('Exporting:', mahd, 'URL:', url);
+            // ✅ Dùng hoidong_id trong route
+            const url = "{{ route('lecturers.tong-ket.export-excel', ':hoidong_id') }}".replace(':hoidong_id', hoidongId);
+            
+            console.log('Exporting hoidong_id:', hoidongId, 'mahd:', mahd, 'URL:', url);
             
             fetch(url, {
                 method: 'GET',

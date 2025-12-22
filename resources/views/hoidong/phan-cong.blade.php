@@ -75,7 +75,7 @@
                                                     <strong class="text-primary">{{ $dt->nhom }}</strong> - {{ $dt->tendt }}
                                                     <br>
                                                     <small class="text-muted">
-                                                        GV: {{ $dt->gv_huongdan }} ({{ $dt->magv }})
+                                                        GV: {{ $dt->gv_huongdan }}
                                                     </small>
                                                     <br>
                                                     <small>
@@ -138,7 +138,7 @@
                                     <div class="card-body p-3">
                                         <p class="mb-1"><strong>{{ $dt->tendt }}</strong></p>
                                         <p class="mb-1 text-muted small">
-                                            GV: {{ $dt->gv_huongdan }} ({{ $dt->magv }})
+                                            GV: {{ $dt->gv_huongdan }}
                                         </p>
                                         <hr class="my-2">
                                         <p class="mb-0 small">

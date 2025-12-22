@@ -13,7 +13,7 @@
                         <i class="fa fa-info-circle me-2"></i> Thông Tin Hội Đồng
                     </h4>
                     <div>
-                        <a href="{{ route('admin.hoidong.phancong.form', $hoiDong->mahd) }}" 
+                        <a href="{{ route('admin.hoidong.phancong.form', $hoiDong->id) }}" 
                            class="btn btn-light btn-sm me-2">
                             <i class="fa fa-tasks me-1"></i> Phân Công Đề Tài
                         </a>
@@ -111,7 +111,7 @@
                         <div class="alert alert-warning">
                             <i class="fa fa-exclamation-triangle me-2"></i>
                             Chưa có đề tài nào được phân công!
-                            <a href="{{ route('admin.hoidong.phancong.form', $hoiDong->mahd) }}" 
+                            <a href="{{ route('admin.hoidong.phancong.form', $hoiDong->id) }}" 
                                class="btn btn-sm btn-primary ms-3">
                                 <i class="fa fa-plus me-1"></i> Phân Công Ngay
                             </a>
@@ -125,7 +125,7 @@
                                         <i class="fa fa-folder me-2"></i>
                                         {{ $index + 1 }}. Nhóm: <strong>{{ $dt->nhom }}</strong>
                                     </h6>
-                                    <form action="{{ route('admin.hoidong.phancong.delete', [$hoiDong->mahd, $dt->nhom]) }}" 
+                                    <form action="{{ route('admin.hoidong.phancong.delete', [$hoiDong->id, $dt->nhom_id]) }}" 
                                           method="POST" 
                                           onsubmit="return confirm('Xác nhận xóa đề tài này khỏi hội đồng?')">
                                         @csrf
@@ -140,14 +140,14 @@
                                 <p class="mb-2"><strong>Tên đề tài:</strong> {{ $dt->tendt }}</p>
                                 <p class="mb-2">
                                     <strong>GV hướng dẫn:</strong> 
-                                    {{ $dt->gv_huongdan }} ({{ $dt->magv }})
+                                    {{ $dt->gv_huongdan }}
                                 </p>
 
                                 <hr>
 
                                 <strong>Sinh viên thực hiện:</strong>
                                 <ul class="mt-2">
-                                    @foreach($sinhVienTheoNhom[$dt->nhom] as $sv)
+                                    @foreach($sinhVienTheoNhom[$dt->nhom_id] as $sv)
                                     <li>
                                         <strong>{{ $sv->hoten }}</strong> - MSSV: {{ $sv->mssv }} - Lớp: {{ $sv->lop }}
                                     </li>

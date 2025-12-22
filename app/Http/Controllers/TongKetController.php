@@ -24,29 +24,44 @@ class TongKetController extends Controller
         }
 
         $magv = $user->magv;
+        \Log::info('=== TongKet Index ===');
+        \Log::info('magv: ' . $magv);
 
+        // Lấy danh sách hội đồng của giảng viên
         $hoiDongList = DB::table('thanhvienhoidong as tv')
             ->join('hoidong as hd', 'tv.hoidong_id', '=', 'hd.id')
             ->where('tv.magv', $magv)
             ->select('hd.id as hoidong_id', 'hd.mahd', 'hd.tenhd', 'tv.vai_tro')
             ->get();
 
+        \Log::info('hoiDongList count: ' . $hoiDongList->count());
+        \Log::info('hoiDongList: ' . json_encode($hoiDongList));
+
         $danhSachTongKet = [];
 
         foreach ($hoiDongList as $hd) {
+            \Log::info('Processing hoidong_id: ' . $hd->hoidong_id . ', mahd: ' . $hd->mahd);
+            
             try {
                 $sinhVienDiem = $this->exportService->getDanhSachSinhVienDiem($hd->hoidong_id);
+                
+                \Log::info('sinhVienDiem count: ' . $sinhVienDiem->count());
                 
                 if (!$sinhVienDiem->isEmpty()) {
                     $danhSachTongKet[] = [
                         'hoiDong' => $hd,
                         'sinhVienDiem' => $sinhVienDiem
                     ];
+                    \Log::info('Added to danhSachTongKet');
+                } else {
+                    \Log::warning('sinhVienDiem is empty for hoidong_id: ' . $hd->hoidong_id);
                 }
             } catch (\Exception $e) {
                 \Log::warning('Error getting diem for hoidong_id: ' . $hd->hoidong_id . ' - ' . $e->getMessage());
             }
         }
+
+        \Log::info('danhSachTongKet final count: ' . count($danhSachTongKet));
 
         $khongCoDiem = empty($danhSachTongKet);
 
@@ -81,7 +96,7 @@ class TongKetController extends Controller
         $magv = $user->magv;
         \Log::info('magv: ' . $magv);
 
-        // Kiểm tra giảng viên có trong hội đồng này không - ĐÚNG QUERY
+        // Kiểm tra giảng viên có trong hội đồng này không
         $vaiTro = DB::table('thanhvienhoidong as tv')
             ->join('hoidong as hd', 'tv.hoidong_id', '=', 'hd.id')
             ->where('hd.id', $hoidong_id)

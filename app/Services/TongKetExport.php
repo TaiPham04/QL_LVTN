@@ -25,15 +25,27 @@ class TongKetExport
             throw new \Exception('Hội đồng không tồn tại!');
         }
 
-        // Lấy danh sách sinh viên trong các đề tài của hội đồng
+        // ✅ FIX: Join đúng theo cấu trúc bảng
+        // sinhvien → detai (qua mssv) → nhom (qua nhom_id)
         $sinhVienList = DB::table('hoidong_detai as hdt')
             ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
-            ->join('detai as dt', 'hdt.nhom_id', '=', 'dt.nhom_id')
-            ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
+            ->join('detai as dt', 'n.id', '=', 'dt.nhom_id')
+            ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')  // ✅ Join qua mssv
             ->where('hdt.hoidong_id', $hoidong_id)
-            ->select('n.tennhom as nhom', 'n.id as nhom_id', 'sv.mssv', 'sv.hoten', 'sv.lop', 'n.tendt', 'dt.magv')
+            ->select(
+                'n.tennhom as nhom', 
+                'n.id as nhom_id', 
+                'sv.mssv', 
+                'sv.hoten', 
+                'sv.lop', 
+                'n.tendt', 
+                'dt.magv'
+            )
             ->distinct()
             ->get();
+
+        \Log::info('sinhVienList count: ' . $sinhVienList->count());
+        \Log::info('sinhVienList data: ' . json_encode($sinhVienList));
 
         $result = [];
 
@@ -52,7 +64,7 @@ class TongKetExport
                 ->where('pcd.nhom_id', $sv->nhom_id)
                 ->where('dsv.mssv', $sv->mssv)
                 ->where('pcd.loai_phieu', 'huong_dan')
-                ->select(DB::raw('ROUND((dsv.diem_phan_tich + dsv.diem_thiet_ke + dsv.diem_hien_thuc + dsv.diem_kiem_tra), 2) as tong_diem'))
+                ->select(DB::raw('ROUND((COALESCE(dsv.diem_phan_tich, 0) + COALESCE(dsv.diem_thiet_ke, 0) + COALESCE(dsv.diem_hien_thuc, 0) + COALESCE(dsv.diem_kiem_tra, 0)), 2) as tong_diem'))
                 ->value('tong_diem') ?? '';
 
             // Lấy điểm phản biện
@@ -61,7 +73,7 @@ class TongKetExport
                 ->where('pcd.nhom_id', $sv->nhom_id)
                 ->where('dsv.mssv', $sv->mssv)
                 ->where('pcd.loai_phieu', 'phan_bien')
-                ->select(DB::raw('ROUND((dsv.diem_phan_tich + dsv.diem_thiet_ke + dsv.diem_hien_thuc + dsv.diem_kiem_tra), 2) as tong_diem'))
+                ->select(DB::raw('ROUND((COALESCE(dsv.diem_phan_tich, 0) + COALESCE(dsv.diem_thiet_ke, 0) + COALESCE(dsv.diem_hien_thuc, 0) + COALESCE(dsv.diem_kiem_tra, 0)), 2) as tong_diem'))
                 ->value('tong_diem') ?? '';
 
             // Lấy điểm hội đồng
@@ -69,9 +81,11 @@ class TongKetExport
                 ->where('hoidong_id', $hoidong_id)
                 ->where('nhom_id', $sv->nhom_id)
                 ->where('mssv', $sv->mssv)
-                ->avg('diem') ?? '';
-
-            if ($diemHoiDong !== '') {
+                ->avg('diem');
+            
+            if ($diemHoiDong === null) {
+                $diemHoiDong = '';
+            } else {
                 $diemHoiDong = round($diemHoiDong, 2);
             }
 
@@ -94,6 +108,8 @@ class TongKetExport
                 'diem_tongket' => $diemTongKet
             ];
         }
+
+        \Log::info('result count: ' . count($result));
 
         return collect($result);
     }

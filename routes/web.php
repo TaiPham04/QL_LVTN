@@ -133,7 +133,7 @@ Route::middleware(['auth', 'lecturers'])
             Route::get('/', [App\Http\Controllers\NhiemVuController::class, 'index'])->name('index');
             Route::get('/{nhom_id}/create', [App\Http\Controllers\NhiemVuController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\NhiemVuController::class, 'store'])->name('store');
-            Route::get('/{nhom_id}/export', [App\Http\Controllers\NhiemVuController::class, 'exportWord'])->name('export');
+            Route::get('/{nhom_id}/export', [App\Http\Controllers\NhiemVuController::class, 'export'])->name('export');
         });
 
         // ✅ CHẤM ĐIỂM HỘI ĐỒNG
