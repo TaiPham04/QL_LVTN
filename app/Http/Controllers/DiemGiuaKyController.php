@@ -3,140 +3,134 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\Detai;
 use App\Services\DiemGiuaKyExport;
-use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 
 class DiemGiuaKyController extends Controller
 {
-    // Hiển thị danh sách sinh viên để chấm điểm
+    /**
+     * Hiển thị danh sách sinh viên để chấm điểm giữa kỳ
+     */
     public function index()
     {
-        $magv = session('user')->magv ?? null;
+        $magv = session('user')->magv;
 
-        if (!$magv) {
-            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập');
-        }
-
-        // Lấy danh sách sinh viên của giảng viên này
+        // Lấy danh sách sinh viên được phân công
         $students = DB::table('detai as dt')
-            ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-            ->leftJoin('diem_giuaky as dg', 'dt.mssv', '=', 'dg.mssv')
+            ->join('sinhvien as s', 'dt.mssv', '=', 's.mssv')
+            ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
             ->where('dt.magv', $magv)
+            ->whereNotNull('dt.mssv')
             ->select(
-                'dt.mssv',
-                'sv.hoten as tensv',
-                'dt.nhom',
-                'dt.tendt',
-                'dg.diem',
-                'dg.ketqua',
-                'dg.nhanxet'
+                's.mssv',
+                's.hoten as tensv',
+                's.lop',
+                'n.tendt',  // ← LẤY TỬ nhom TABLE
+                'dt.nhom_id',
+                'n.tennhom as nhom'
             )
-            ->orderBy('dt.nhom')
-            ->orderBy('sv.hoten')
+            ->orderBy('n.tennhom')
+            ->orderBy('s.mssv')
             ->get();
 
-        // Group theo nhóm
-        $groupedStudents = $students->groupBy('nhom')->map(function ($items, $nhom) {
-            $first = $items->first();
+        // Lấy điểm đã chấm (nếu có)
+        $scores = DB::table('diem_giuaky')
+            ->where('magv_cham', $magv)
+            ->get()
+            ->keyBy('mssv');
+
+        // Nhóm sinh viên theo nhóm đề tài
+        $groupedStudents = [];
+        
+        foreach ($students as $student) {
+            $key = $student->nhom_id ?? 'null';
             
-            return [
-                'nhom' => $nhom ?? 'Chưa có',
-                'tendt' => $first->tendt,
-                'students' => $items->map(function ($student) {
-                    // Tính trạng thái
-                    if ($student->ketqua === 'duoc_tieptuc') {
-                        $trangthai = 'Được tiếp tục';
-                        $badge_class = 'bg-success';
-                    } elseif ($student->ketqua === 'khong_duoc_tieptuc') {
-                        $trangthai = 'Không được tiếp tục';
-                        $badge_class = 'bg-danger';
-                    } else {
-                        $trangthai = 'Chưa đánh giá';
-                        $badge_class = 'bg-secondary';
-                    }
-                    
-                    // Chuyển thành array
-                    return [
-                        'mssv' => $student->mssv,
-                        'tensv' => $student->tensv,
-                        'diem' => $student->diem,
-                        'ketqua' => $student->ketqua,
-                        'nhanxet' => $student->nhanxet,
-                        'trangthai' => $trangthai,
-                        'badge_class' => $badge_class,
-                    ];
-                })->toArray()
+            if (!isset($groupedStudents[$key])) {
+                $groupedStudents[$key] = [
+                    'nhom' => $student->nhom ?? 'Chưa có',
+                    'tendt' => $student->tendt ?? '',
+                    'students' => []
+                ];
+            }
+
+            // Lấy điểm cũ (nếu có)
+            $oldScore = $scores[$student->mssv] ?? null;
+
+            $groupedStudents[$key]['students'][] = [
+                'mssv' => $student->mssv,
+                'tensv' => $student->tensv,
+                'diem' => $oldScore ? $oldScore->diem : '',
+                'ketqua' => $oldScore ? $oldScore->ketqua : '',
+                'nhanxet' => $oldScore ? $oldScore->nhanxet : ''
             ];
-        })->values();
+        }
 
         return view('lecturers.diem-giuaky.index', compact('groupedStudents'));
     }
 
-    // Lưu điểm và kết quả đánh giá
+    /**
+     * Lưu điểm giữa kỳ
+     */
     public function store(Request $request)
     {
-        $magv = session('user')->magv ?? null;
+        $magv = session('user')->magv;
 
-        if (!$magv) {
-            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập');
-        }
-
-        $request->validate([
-            'mssv' => 'required|array|min:1',
-            'diem.*' => 'nullable|numeric|min:0|max:10',
-            'ketqua.*' => 'nullable|in:duoc_tieptuc,khong_duoc_tieptuc,chua_danh_gia',
-            'nhanxet.*' => 'nullable|string|max:500',
-        ], [
-            'diem.*.numeric' => 'Điểm phải là số',
-            'diem.*.min' => 'Điểm phải từ 0 đến 10',
-            'diem.*.max' => 'Điểm phải từ 0 đến 10',
+        $validated = $request->validate([
+            'mssv' => 'required|array',
+            'diem' => 'required|array',
+            'ketqua' => 'required|array',
+            'nhanxet' => 'nullable|array'
         ]);
 
-        $count = 0;
-
-        foreach ($request->mssv as $mssv) {
-            $diem = $request->diem[$mssv] ?? null;
-            $ketqua = $request->ketqua[$mssv] ?? 'chua_danh_gia';
-            $nhanxet = $request->nhanxet[$mssv] ?? null;
-
-            // Chỉ lưu nếu có điểm hoặc có kết quả đánh giá
-            if (($diem !== null && $diem !== '') || $ketqua !== 'chua_danh_gia') {
-                DB::table('diem_giuaky')->updateOrInsert(
-                    ['mssv' => $mssv],
-                    [
-                        'diem' => $diem !== '' ? $diem : null,
-                        'ketqua' => $ketqua,
-                        'nhanxet' => $nhanxet,
-                        'magv_cham' => $magv,
-                    ]
-                );
-                $count++;
-            }
-        }
-
-        return redirect()->back()->with('success', "Đã lưu đánh giá cho {$count} sinh viên!");
-    }
-
-    
-
-    public function export()
-    {
-        $user = session('user');
-        $lecturer = DB::table('giangvien')->where('email', $user->email)->first();
-        
-        if (!$lecturer) {
-            return back()->with('error', 'Không tìm thấy thông tin giảng viên!');
-        }
+        DB::beginTransaction();
 
         try {
+            foreach ($validated['mssv'] as $mssv) {
+                $diem = $validated['diem'][$mssv] ?? null;
+
+                if ($diem !== null && $diem !== '') {
+                    DB::table('diem_giuaky')->updateOrInsert(
+                        [
+                            'mssv' => $mssv,
+                            'magv_cham' => $magv
+                        ],
+                        [
+                            'diem' => $diem,
+                            'ketqua' => $validated['ketqua'][$mssv] ?? 'chua_danh_gia',
+                            'nhanxet' => $validated['nhanxet'][$mssv] ?? '',
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]
+                    );
+                }
+            }
+
+            DB::commit();
+
+            return redirect()->route('lecturers.diemgiuaky.index')
+                ->with('success', 'Lưu điểm giữa kỳ thành công!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Lỗi lưu điểm: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export Excel
+     */
+    public function export()
+    {
+        try {
+            $magv = session('user')->magv;
             $exporter = new DiemGiuaKyExport();
-            $filePath = $exporter->export($lecturer->magv);
+            $filePath = $exporter->export($magv);
             
             return response()->download($filePath)->deleteFileAfterSend(true);
-            
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Không thể xuất file Excel: ' . $e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
     }
 }

@@ -7,45 +7,24 @@ use Illuminate\Database\Eloquent\Model;
 class HoiDong extends Model
 {
     protected $table = 'hoidong';
-    protected $primaryKey = 'mahd';
-    public $incrementing = false;
-    protected $keyType = 'string';
-    public $timestamps = false; // ← BỎ TIMESTAMPS
-
+    protected $primaryKey = 'id';
+    public $timestamps = false;  // ✅ PHẢI CÓ DÒNG NÀY
+    public $incrementing = true;  // ✅ VÀ CÓ DÒNG NÀY
+    
     protected $fillable = [
         'mahd',
         'tenhd',
         'ghi_chu',
-        'trang_thai'
+        'trang_thai',
     ];
 
-    // Quan hệ: 1 hội đồng có nhiều thành viên
     public function thanhVien()
     {
-        return $this->hasMany(ThanhVienHoiDong::class, 'mahd', 'mahd');
+        return $this->hasMany(ThanhVienHoiDong::class, 'hoidong_id', 'id');
     }
 
-    // Quan hệ: 1 hội đồng có nhiều đề tài
     public function deTai()
     {
-        return $this->hasMany(HoiDongDeTai::class, 'mahd', 'mahd');
-    }
-
-    // Lấy danh sách giảng viên trong hội đồng
-    public function giangVien()
-    {
-        return $this->belongsToMany(Lecturer::class, 'thanhvienhoidong', 'mahd', 'magv');
-    }
-
-    // Helper: Kiểm tra hội đồng đã đủ 3 thành viên chưa
-    public function isDayDu()
-    {
-        return $this->thanhVien()->count() >= 3;
-    }
-
-    // Helper: Đếm số đề tài được phân công
-    public function getSoLuongDeTai()
-    {
-        return $this->deTai()->count();
+        return $this->hasMany(HoiDongDeTai::class, 'hoidong_id', 'id');
     }
 }

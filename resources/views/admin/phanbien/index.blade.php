@@ -58,7 +58,7 @@
                                     <td class="text-center">
                                         <input type="checkbox" 
                                                name="selected_topics[]" 
-                                               value="{{ $topic->nhom }}" 
+                                               value="{{ $topic->nhom_id }}" 
                                                class="form-check-input topic-checkbox"
                                                data-magv-hd="{{ $topic->magv_hd }}">
                                     </td>

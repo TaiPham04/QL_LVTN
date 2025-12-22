@@ -7,17 +7,20 @@ use Illuminate\Support\Facades\DB;
 
 class NhiemVuWordExporter
 {
-    public function export($nhom, $magv)
+    public function export($nhom_id, $magv)
     {
         // Lấy thông tin nhiệm vụ
         $nhiemvu = DB::table('nhiemvu')
-            ->where('nhom', $nhom)
+            ->where('nhom_id', $nhom_id)
             ->where('magv', $magv)
             ->first();
 
         if (!$nhiemvu) {
             throw new \Exception('Chưa có thông tin nhiệm vụ cho nhóm này!');
         }
+
+        // Lấy tên nhóm để tạo tên file
+        $nhom = DB::table('nhom')->where('id', $nhom_id)->value('tennhom');
 
         // Đường dẫn template
         $templatePath = storage_path('app/templates/nhiemvu_template.docx');

@@ -27,20 +27,22 @@ class NhiemVuController extends Controller
 
         // Lấy danh sách nhóm và thông tin nhiệm vụ
         $groups = DB::table('detai as d')
+            ->join('nhom as n', 'd.nhom_id', '=', 'n.id')
             ->leftJoin('nhiemvu as nv', function($join) use ($lecturer) {
-                $join->on('d.nhom', '=', 'nv.nhom')
+                $join->on('n.id', '=', 'nv.nhom_id')
                      ->where('nv.magv', '=', $lecturer->magv);
             })
             ->where('d.magv', $lecturer->magv)
-            ->whereNotNull('d.nhom')
+            ->whereNotNull('d.nhom_id')
             ->select(
-                'd.nhom',
-                'd.tendt as tenduan',
+                'n.id as nhom_id',
+                'n.tennhom as nhom',
+                'n.tendt as tenduan',
                 DB::raw('COUNT(DISTINCT d.mssv) as so_sv'),
                 'nv.trangthai',
                 'nv.id as nhiemvu_id'
             )
-            ->groupBy('d.nhom', 'd.tendt', 'nv.trangthai', 'nv.id')
+            ->groupBy('n.id', 'n.tennhom', 'n.tendt', 'nv.trangthai', 'nv.id')
             ->get();
 
         return view('lecturers.nhiemvu.index', compact('groups'));
@@ -49,7 +51,7 @@ class NhiemVuController extends Controller
     /**
      * Form điền nhiệm vụ
      */
-    public function create($nhom)
+    public function create($nhom_id)
     {
         $user = session('user');
         
@@ -64,30 +66,39 @@ class NhiemVuController extends Controller
         }
 
         // Lấy thông tin nhóm
-        $group = DB::table('detai')
-            ->where('nhom', $nhom)
-            ->where('magv', $lecturer->magv)
+        $group = DB::table('nhom')
+            ->where('id', $nhom_id)
             ->first();
 
         if (!$group) {
             return back()->with('error', 'Không tìm thấy nhóm!');
         }
 
+        // Kiểm tra giảng viên có hướng dẫn nhóm này không
+        $check = DB::table('detai')
+            ->where('nhom_id', $nhom_id)
+            ->where('magv', $lecturer->magv)
+            ->exists();
+
+        if (!$check) {
+            return back()->with('error', 'Bạn không được phép cập nhật nhóm này!');
+        }
+
         // Lấy danh sách sinh viên trong nhóm
         $students = DB::table('detai')
             ->join('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
-            ->where('detai.nhom', $nhom)
+            ->where('detai.nhom_id', $nhom_id)
             ->where('detai.magv', $lecturer->magv)
             ->select('sinhvien.mssv', 'sinhvien.hoten', 'sinhvien.lop')
             ->get();
 
         // Kiểm tra đã có nhiệm vụ chưa
         $nhiemvu = DB::table('nhiemvu')
-            ->where('nhom', $nhom)
+            ->where('nhom_id', $nhom_id)
             ->where('magv', $lecturer->magv)
             ->first();
 
-        return view('lecturers.nhiemvu.form', compact('group', 'students', 'nhiemvu', 'lecturer'));
+        return view('lecturers.nhiemvu.form', compact('group', 'students', 'nhiemvu', 'lecturer', 'nhom_id'));
     }
 
     /**
@@ -96,7 +107,7 @@ class NhiemVuController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nhom' => 'required',
+            'nhom_id' => 'required',
             'sv1_hoten' => 'required',
             'sv1_mssv' => 'required',
             'sv1_lop' => 'required',
@@ -110,7 +121,6 @@ class NhiemVuController extends Controller
             'sv1_hoten.required' => 'Không tìm thấy thông tin sinh viên 1',
             'sv1_mssv.required' => 'Không tìm thấy MSSV sinh viên 1',
             'sv1_lop.required' => 'Không tìm thấy lớp sinh viên 1',
-            // ... các message khác
         ]);
 
         $user = session('user');
@@ -155,7 +165,7 @@ class NhiemVuController extends Controller
             // Lưu hoặc cập nhật nhiệm vụ
             $result = DB::table('nhiemvu')->updateOrInsert(
                 [
-                    'nhom' => $request->nhom,
+                    'nhom_id' => $request->nhom_id,
                     'magv' => $lecturer->magv
                 ],
                 $data
@@ -174,10 +184,11 @@ class NhiemVuController extends Controller
             return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
     }
+    
     /**
      * Xuất Word
      */
-    public function exportWord($nhom)
+    public function exportWord($nhom_id)
     {
         $user = session('user');
         
@@ -193,7 +204,7 @@ class NhiemVuController extends Controller
 
         // Kiểm tra đã điền nhiệm vụ chưa
         $nhiemvu = DB::table('nhiemvu')
-            ->where('nhom', $nhom)
+            ->where('nhom_id', $nhom_id)
             ->where('magv', $lecturer->magv)
             ->first();
 
@@ -207,7 +218,7 @@ class NhiemVuController extends Controller
 
         try {
             $exporter = new NhiemVuWordExporter();
-            $filePath = $exporter->export($nhom, $lecturer->magv);
+            $filePath = $exporter->export($nhom_id, $lecturer->magv);
             
             return response()->download($filePath)->deleteFileAfterSend(true);
             
@@ -219,7 +230,7 @@ class NhiemVuController extends Controller
     /**
      * Xem chi tiết nhiệm vụ (optional)
      */
-    public function show($nhom)
+    public function show($nhom_id)
     {
         $user = session('user');
         $lecturer = DB::table('giangvien')->where('email', $user->email)->first();
@@ -229,7 +240,7 @@ class NhiemVuController extends Controller
         }
 
         $nhiemvu = DB::table('nhiemvu')
-            ->where('nhom', $nhom)
+            ->where('nhom_id', $nhom_id)
             ->where('magv', $lecturer->magv)
             ->first();
 
@@ -245,7 +256,7 @@ class NhiemVuController extends Controller
     /**
      * Xóa nhiệm vụ (optional)
      */
-    public function destroy($nhom)
+    public function destroy($nhom_id)
     {
         $user = session('user');
         $lecturer = DB::table('giangvien')->where('email', $user->email)->first();
@@ -256,7 +267,7 @@ class NhiemVuController extends Controller
 
         try {
             $deleted = DB::table('nhiemvu')
-                ->where('nhom', $nhom)
+                ->where('nhom_id', $nhom_id)
                 ->where('magv', $lecturer->magv)
                 ->delete();
 

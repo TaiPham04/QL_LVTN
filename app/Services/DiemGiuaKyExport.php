@@ -17,25 +17,23 @@ class DiemGiuaKyExport
     public function export($magv)
     {
         // Lấy danh sách sinh viên đã chấm điểm
-        $results = DB::table('diem_giuaky as d')  // ← TÊN BẢNG ĐÚNG
+        $results = DB::table('diem_giuaky as d')
             ->join('sinhvien as s', 'd.mssv', '=', 's.mssv')
-            ->leftJoin('detai as dt', function($join) use ($magv) {
-                $join->on('d.mssv', '=', 'dt.mssv')
-                     ->where('dt.magv', '=', $magv);
-            })
-            ->where('d.magv_cham', $magv)  // ← SỬA: magv_cham
+            ->leftJoin('detai as dt', 'd.mssv', '=', 'dt.mssv')
+            ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
+            ->where('d.magv_cham', $magv)
             ->whereNotNull('d.diem')
             ->select(
-                'dt.nhom',
+                'n.tennhom as nhom',
                 's.mssv',
                 's.hoten',
                 's.lop',
-                'dt.tendt',
+                'n.tendt',  // ← SỬA: LẤY TỬ nhom TABLE, KHÔNG PHẢI dt.tendt
                 'd.diem',
-                'd.ketqua',      // ← THÊM ketqua
+                'd.ketqua',
                 'd.nhanxet'
             )
-            ->orderBy('dt.nhom')
+            ->orderBy('n.tennhom')
             ->orderBy('s.mssv')
             ->get();
 
@@ -53,7 +51,7 @@ class DiemGiuaKyExport
         // PHẦN HEADER
         // ===================================
         
-        $sheet->mergeCells('A1:I1');  // ← SỬA: Thêm cột I
+        $sheet->mergeCells('A1:I1');
         $sheet->setCellValue('A1', 'BẢNG ĐIỂM GIỮA KỲ');
         $sheet->getStyle('A1')->applyFromArray([
             'font' => [
@@ -90,7 +88,7 @@ class DiemGiuaKyExport
 
         $headerRow = 5;
         
-        $headers = ['STT', 'Nhóm', 'MSSV', 'Họ Tên', 'Lớp', 'Đề Tài', 'Điểm', 'Kết Quả', 'Nhận Xét'];  // ← THÊM Kết Quả
+        $headers = ['STT', 'Nhóm', 'MSSV', 'Họ Tên', 'Lớp', 'Đề Tài', 'Điểm', 'Kết Quả', 'Nhận Xét'];
         $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
         foreach ($headers as $index => $header) {
@@ -135,7 +133,7 @@ class DiemGiuaKyExport
             $sheet->setCellValue("E{$currentRow}", $item->lop ?? 'N/A');
             $sheet->setCellValue("F{$currentRow}", $item->tendt ?? 'Chưa có đề tài');
             $sheet->setCellValue("G{$currentRow}", $item->diem ?? '');
-            $sheet->setCellValue("H{$currentRow}", $this->formatKetQua($item->ketqua));  // ← THÊM
+            $sheet->setCellValue("H{$currentRow}", $this->formatKetQua($item->ketqua));
             $sheet->setCellValue("I{$currentRow}", $item->nhanxet ?? '');
 
             $currentRow++;

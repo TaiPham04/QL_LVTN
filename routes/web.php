@@ -66,13 +66,13 @@ Route::middleware(['auth', 'admin'])
             Route::get('/', [App\Http\Controllers\HoiDongController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\HoiDongController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\HoiDongController::class, 'store'])->name('store');
-            Route::get('/{mahd}', [App\Http\Controllers\HoiDongController::class, 'show'])->name('show');
-            Route::delete('/{mahd}', [App\Http\Controllers\HoiDongController::class, 'destroy'])->name('destroy');
+            Route::get('/{id}', [App\Http\Controllers\HoiDongController::class, 'show'])->name('show');
+            Route::delete('/{id}', [App\Http\Controllers\HoiDongController::class, 'destroy'])->name('destroy');
             
-            Route::get('/{mahd}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongForm'])->name('phancong.form');
-            Route::post('/{mahd}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongStore'])->name('phancong.store');
-            Route::delete('/{mahd}/phan-cong/{nhom}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
-            Route::get('/{mahd}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/{id}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongForm'])->name('phancong.form');
+            Route::post('/{id}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongStore'])->name('phancong.store');
+            Route::delete('/{id}/phan-cong/{nhom_id}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
+            Route::get('/{id}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
         });
     });
 
@@ -99,28 +99,28 @@ Route::middleware(['auth', 'lecturers'])
             Route::get('/', [LecturerAssignmentsController::class, 'index'])->name('index');
             Route::get('/form', [LecturerAssignmentsController::class, 'form'])->name('form');
             Route::post('/store', [LecturerAssignmentsController::class, 'store'])->name('store');
-            Route::get('/{nhom}', [LecturerAssignmentsController::class, 'show'])->name('show');
-            Route::get('/{nhom}/edit', [LecturerAssignmentsController::class, 'edit'])->name('edit');
-            Route::put('/{nhom}', [LecturerAssignmentsController::class, 'update'])->name('update');
-            Route::delete('/{nhom}', [LecturerAssignmentsController::class, 'destroy'])->name('destroy');
+            Route::get('/{nhom_id}', [LecturerAssignmentsController::class, 'show'])->name('show');
+            Route::get('/{nhom_id}/edit', [LecturerAssignmentsController::class, 'edit'])->name('edit');
+            Route::put('/{nhom_id}', [LecturerAssignmentsController::class, 'update'])->name('update');
+            Route::delete('/{nhom_id}', [LecturerAssignmentsController::class, 'destroy'])->name('destroy');
             Route::post('/update-all-status', [LecturerAssignmentsController::class, 'updateAllStatus'])->name('update-all-status');
-            Route::post('/{nhom}/update-status', [LecturerAssignmentsController::class, 'updateStatus'])->name('updateStatus');
+            Route::post('/{nhom_id}/update-status', [LecturerAssignmentsController::class, 'updateStatus'])->name('updateStatus');
         });
 
         // Chấm điểm hướng dẫn
         Route::prefix('cham-diem-huong-dan')->name('chamdiem.huongdan.')->group(function () {
             Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexHuongDan'])->name('index');
-            Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formHuongDan'])->name('form');
-            Route::post('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'storeHuongDan'])->name('store');
-            Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportHuongDan'])->name('export');
+            Route::get('/{nhom_id}', [App\Http\Controllers\ChamDiemController::class, 'formHuongDan'])->name('form');
+            Route::post('/{nhom_id}', [App\Http\Controllers\ChamDiemController::class, 'storeHuongDan'])->name('store');
+            Route::get('/{nhom_id}/export', [App\Http\Controllers\ChamDiemController::class, 'exportHuongDan'])->name('export');
         });
 
         // Chấm điểm phản biện
         Route::prefix('cham-diem-phan-bien')->name('chamdiem.phanbien.')->group(function () {
             Route::get('/', [App\Http\Controllers\ChamDiemController::class, 'indexPhanBien'])->name('index');
-            Route::get('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'formPhanBien'])->name('form');
-            Route::post('/{nhom}', [App\Http\Controllers\ChamDiemController::class, 'storePhanBien'])->name('store');
-            Route::get('/{nhom}/export', [App\Http\Controllers\ChamDiemController::class, 'exportPhanBien'])->name('export');
+            Route::get('/{nhom_id}/form', [App\Http\Controllers\ChamDiemController::class, 'formPhanBien'])->name('form')->where('nhom_id', '[0-9]+');
+            Route::post('/{nhom_id}', [App\Http\Controllers\ChamDiemController::class, 'storePhanBien'])->name('store')->where('nhom_id', '[0-9]+');
+            Route::get('/{nhom_id}/export', [App\Http\Controllers\ChamDiemController::class, 'exportPhanBien'])->name('export')->where('nhom_id', '[0-9]+');
         });
 
         // Điểm giữa kỳ
@@ -131,9 +131,9 @@ Route::middleware(['auth', 'lecturers'])
         // Nhiệm vụ
         Route::prefix('nhiemvu')->name('nhiemvu.')->group(function () {
             Route::get('/', [App\Http\Controllers\NhiemVuController::class, 'index'])->name('index');
-            Route::get('/{nhom}/create', [App\Http\Controllers\NhiemVuController::class, 'create'])->name('create');
+            Route::get('/{nhom_id}/create', [App\Http\Controllers\NhiemVuController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\NhiemVuController::class, 'store'])->name('store');
-            Route::get('/{nhom}/export', [App\Http\Controllers\NhiemVuController::class, 'exportWord'])->name('export');
+            Route::get('/{nhom_id}/export', [App\Http\Controllers\NhiemVuController::class, 'exportWord'])->name('export');
         });
 
         // ✅ CHẤM ĐIỂM HỘI ĐỒNG

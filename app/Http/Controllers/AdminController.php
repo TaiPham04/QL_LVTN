@@ -22,14 +22,15 @@ class AdminController extends Controller
         $query = DB::table('detai')
             ->leftJoin('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
             ->leftJoin('giangvien', 'detai.magv', '=', 'giangvien.magv')
+            ->leftJoin('nhom', 'detai.nhom_id', '=', 'nhom.id')
             ->select(
                 'detai.mssv',
                 'sinhvien.hoten as tensv',
-                'detai.nhom',
-                'detai.tendt',
+                'nhom.tennhom as nhom',
+                'nhom.tendt',
                 'giangvien.hoten as tengv'
             )
-            ->orderBy('detai.nhom')
+            ->orderBy('nhom.tennhom')
             ->orderBy('sinhvien.hoten');
 
         // Lọc theo giảng viên
@@ -39,12 +40,12 @@ class AdminController extends Controller
 
         // Lọc theo trạng thái đề tài
         if ($selectedStatus === 'co_detai') {
-            $query->whereNotNull('detai.tendt')
-                  ->where('detai.tendt', '!=', '');
+            $query->whereNotNull('nhom.tendt')
+                  ->where('nhom.tendt', '!=', '');
         } elseif ($selectedStatus === 'chua_detai') {
             $query->where(function($q) {
-                $q->whereNull('detai.tendt')
-                  ->orWhere('detai.tendt', '');
+                $q->whereNull('nhom.tendt')
+                  ->orWhere('nhom.tendt', '');
             });
         }
 

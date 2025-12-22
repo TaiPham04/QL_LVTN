@@ -8,66 +8,77 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TongKetExport
 {
     /**
      * Lấy danh sách sinh viên và điểm tổng kết của 1 hội đồng
      */
-    public function getDanhSachSinhVienDiem($mahd)
+    public function getDanhSachSinhVienDiem($hoidong_id)
     {
+        // Lấy hội đồng
+        $hoiDong = DB::table('hoidong')
+            ->where('id', $hoidong_id)
+            ->first();
+
+        if (!$hoiDong) {
+            throw new \Exception('Hội đồng không tồn tại!');
+        }
+
         // Lấy danh sách sinh viên trong các đề tài của hội đồng
         $sinhVienList = DB::table('hoidong_detai as hdt')
-            ->join('detai as dt', 'hdt.nhom', '=', 'dt.nhom')
+            ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
+            ->join('detai as dt', 'hdt.nhom_id', '=', 'dt.nhom_id')
             ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-            ->where('hdt.mahd', $mahd)
-            ->select('dt.nhom', 'sv.mssv', 'sv.hoten', 'sv.lop', 'dt.tendt')
+            ->where('hdt.hoidong_id', $hoidong_id)
+            ->select('n.tennhom as nhom', 'n.id as nhom_id', 'sv.mssv', 'sv.hoten', 'sv.lop', 'n.tendt', 'dt.magv')
             ->distinct()
             ->get();
 
         $result = [];
 
         foreach ($sinhVienList as $sv) {
-            // Lấy giáo viên hướng dẫn
-            $gvHD = DB::table('phancong')
-                ->where('mssv', $sv->mssv)
-                ->value('magv');
-
+            // Lấy tên giáo viên hướng dẫn
             $gvHDName = '';
-            if ($gvHD) {
+            if ($sv->magv) {
                 $gvHDName = DB::table('giangvien')
-                    ->where('magv', $gvHD)
-                    ->value('hoten');
+                    ->where('magv', $sv->magv)
+                    ->value('hoten') ?? '';
             }
 
             // Lấy điểm hướng dẫn
             $diemHD = DB::table('phieu_cham_diem as pcd')
                 ->join('diem_sinh_vien as dsv', 'pcd.id', '=', 'dsv.phieu_cham_id')
-                ->where('pcd.nhom', $sv->nhom)
+                ->where('pcd.nhom_id', $sv->nhom_id)
                 ->where('dsv.mssv', $sv->mssv)
                 ->where('pcd.loai_phieu', 'huong_dan')
-                ->value('dsv.diem_tong') ?? '';
+                ->select(DB::raw('ROUND((dsv.diem_phan_tich + dsv.diem_thiet_ke + dsv.diem_hien_thuc + dsv.diem_kiem_tra), 2) as tong_diem'))
+                ->value('tong_diem') ?? '';
 
             // Lấy điểm phản biện
             $diemPB = DB::table('phieu_cham_diem as pcd')
                 ->join('diem_sinh_vien as dsv', 'pcd.id', '=', 'dsv.phieu_cham_id')
-                ->where('pcd.nhom', $sv->nhom)
+                ->where('pcd.nhom_id', $sv->nhom_id)
                 ->where('dsv.mssv', $sv->mssv)
                 ->where('pcd.loai_phieu', 'phan_bien')
-                ->value('dsv.diem_tong') ?? '';
+                ->select(DB::raw('ROUND((dsv.diem_phan_tich + dsv.diem_thiet_ke + dsv.diem_hien_thuc + dsv.diem_kiem_tra), 2) as tong_diem'))
+                ->value('tong_diem') ?? '';
 
             // Lấy điểm hội đồng
-            $diemHD_HoiDong = DB::table('hoidong_chamdiem')
-                ->where('mahd', $mahd)
-                ->where('nhom', $sv->nhom)
+            $diemHoiDong = DB::table('hoidong_chamdiem')
+                ->where('hoidong_id', $hoidong_id)
+                ->where('nhom_id', $sv->nhom_id)
                 ->where('mssv', $sv->mssv)
                 ->avg('diem') ?? '';
 
+            if ($diemHoiDong !== '') {
+                $diemHoiDong = round($diemHoiDong, 2);
+            }
+
             // Tính điểm tổng kết
             $diemTongKet = '';
-            if ($diemHD !== '' && $diemPB !== '' && $diemHD_HoiDong !== '') {
-                $diemTongKet = round(($diemHD + $diemPB + $diemHD_HoiDong) / 3, 2);
+            if ($diemHD !== '' && $diemPB !== '' && $diemHoiDong !== '') {
+                $diemTongKet = round(($diemHD + $diemPB + $diemHoiDong) / 3, 2);
             }
 
             $result[] = [
@@ -79,7 +90,7 @@ class TongKetExport
                 'tendt' => $sv->tendt,
                 'diem_hd' => $diemHD,
                 'diem_pb' => $diemPB,
-                'diem_hoidong' => $diemHD_HoiDong,
+                'diem_hoidong' => $diemHoiDong,
                 'diem_tongket' => $diemTongKet
             ];
         }
@@ -90,11 +101,11 @@ class TongKetExport
     /**
      * Xuất file Excel tổng kết
      */
-    public function exportExcel($mahd)
+    public function exportExcel($hoidong_id)
     {
         // Lấy thông tin hội đồng
         $hoiDong = DB::table('hoidong')
-            ->where('mahd', $mahd)
+            ->where('id', $hoidong_id)
             ->first();
 
         if (!$hoiDong) {
@@ -102,7 +113,7 @@ class TongKetExport
         }
 
         // Lấy danh sách sinh viên và điểm
-        $danhSachSinhVien = $this->getDanhSachSinhVienDiem($mahd);
+        $danhSachSinhVien = $this->getDanhSachSinhVienDiem($hoidong_id);
 
         if ($danhSachSinhVien->isEmpty()) {
             throw new \Exception('Không có sinh viên trong hội đồng này!');
@@ -193,22 +204,17 @@ class TongKetExport
         $sheet->getColumnDimension('I')->setWidth(15);
         $sheet->getColumnDimension('J')->setWidth(15);
 
-        // Xuất file
-        $filename = 'DiemTongKet_' . $mahd . '.xlsx';
+        // Lưu file vào disk
+        $filename = 'DiemTongKet_' . now()->format('YmdHis') . '.xlsx';
+        $filepath = storage_path('app/temp/' . $filename);
+        
+        if (!is_dir(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+        
         $writer = new Xlsx($spreadsheet);
+        $writer->save($filepath);
 
-        return new StreamedResponse(
-            function() use ($writer) {
-                $writer->save('php://output');
-            },
-            200,
-            [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Pragma' => 'no-cache',
-                'Expires' => '0'
-            ]
-        );
+        return $filepath;
     }
 }

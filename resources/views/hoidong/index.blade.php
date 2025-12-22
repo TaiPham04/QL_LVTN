@@ -83,17 +83,17 @@
                                             @endif
                                         </td>
                                         <td class="text-center">
-                                            <a href="{{ route('admin.hoidong.show', $hd->mahd) }}" 
+                                            <a href="{{ route('admin.hoidong.show', $hd->id) }}" 
                                                class="btn btn-sm btn-info" title="Chi tiết">
                                                 <i class="fa fa-eye"></i>
                                             </a>
-                                            <a href="{{ route('admin.hoidong.phancong.form', $hd->mahd) }}" 
+                                            <a href="{{ route('admin.hoidong.phancong.form', $hd->id) }}" 
                                                class="btn btn-sm btn-primary" title="Phân công">
                                                 <i class="fa fa-tasks"></i>
                                             </a>
 
                                             @if($hd->so_de_tai > 0)
-                                                <a href="{{ route('admin.hoidong.export.excel', $hd->mahd) }}" 
+                                                <a href="{{ route('admin.hoidong.export.excel', $hd->id) }}" 
                                                 class="btn btn-sm btn-success" 
                                                 title="Xuất Excel">
                                                     <i class="fa fa-file-excel"></i>
@@ -102,7 +102,7 @@
                                             
                                             {{-- KIỂM TRA: Chỉ hiện nút xóa nếu CHƯA có đề tài --}}
                                             @if($hd->so_de_tai == 0)
-                                                <form action="{{ route('admin.hoidong.destroy', $hd->mahd) }}" 
+                                                <form action="{{ route('admin.hoidong.destroy', $hd->id) }}" 
                                                     method="POST" class="d-inline" 
                                                     onsubmit="return confirm('Xác nhận xóa hội đồng này?')">
                                                     @csrf

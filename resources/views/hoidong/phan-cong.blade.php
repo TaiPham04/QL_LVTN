@@ -54,7 +54,7 @@
                                     Không còn đề tài nào khả dụng để phân công.
                                 </div>
                             @else
-                                <form action="{{ route('admin.hoidong.phancong.store', $hoiDong->mahd) }}" method="POST">
+                                <form action="{{ route('admin.hoidong.phancong.store', $hoiDong->id) }}" method="POST">
                                     @csrf
 
                                     <div class="alert alert-info">
@@ -68,10 +68,10 @@
                                             <div class="form-check">
                                                 <input class="form-check-input" 
                                                        type="checkbox" 
-                                                       name="nhom[]" 
-                                                       value="{{ $dt->nhom }}" 
-                                                       id="nhom_{{ $dt->nhom }}">
-                                                <label class="form-check-label w-100" for="nhom_{{ $dt->nhom }}">
+                                                       name="nhom_id[]" 
+                                                       value="{{ $dt->nhom_id }}" 
+                                                       id="nhom_{{ $dt->nhom_id }}">
+                                                <label class="form-check-label w-100" for="nhom_{{ $dt->nhom_id }}">
                                                     <strong class="text-primary">{{ $dt->nhom }}</strong> - {{ $dt->tendt }}
                                                     <br>
                                                     <small class="text-muted">
@@ -80,7 +80,7 @@
                                                     <br>
                                                     <small>
                                                         <strong>Sinh viên:</strong>
-                                                        @foreach($sinhVienTheoNhom[$dt->nhom] as $sv)
+                                                        @foreach($sinhVienTheoNhom[$dt->nhom_id] as $sv)
                                                             {{ $sv->hoten }} ({{ $sv->mssv }})@if(!$loop->last), @endif
                                                         @endforeach
                                                     </small>
@@ -124,7 +124,7 @@
                                             <strong class="text-success">
                                                 {{ $index + 1 }}. {{ $dt->nhom }}
                                             </strong>
-                                            <form action="{{ route('admin.hoidong.phancong.delete', [$hoiDong->mahd, $dt->nhom]) }}" 
+                                            <form action="{{ route('admin.hoidong.phancong.delete', [$hoiDong->id, $dt->nhom_id]) }}" 
                                                   method="POST" 
                                                   onsubmit="return confirm('Xác nhận xóa đề tài này?')">
                                                 @csrf
@@ -143,7 +143,7 @@
                                         <hr class="my-2">
                                         <p class="mb-0 small">
                                             <strong>Sinh viên:</strong><br>
-                                            @foreach($sinhVienDaPhanCong[$dt->nhom] as $sv)
+                                            @foreach($sinhVienDaPhanCong[$dt->nhom_id] as $sv)
                                                 <span class="badge bg-secondary me-1">{{ $sv->hoten }}</span>
                                             @endforeach
                                         </p>
@@ -158,7 +158,7 @@
 
             {{-- Nút quay lại --}}
             <div class="text-center mt-3">
-                <a href="{{ route('admin.hoidong.show', $hoiDong->mahd) }}" class="btn btn-secondary btn-lg">
+                <a href="{{ route('admin.hoidong.show', $hoiDong->id) }}" class="btn btn-secondary btn-lg">
                     <i class="fa fa-arrow-left me-2"></i> Quay Lại Chi Tiết Hội Đồng
                 </a>
                 <a href="{{ route('admin.hoidong.index') }}" class="btn btn-outline-secondary btn-lg">

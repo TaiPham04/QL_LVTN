@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <form action="{{ route('lecturers.chamdiem.phanbien.store', $nhom) }}" method="POST">
+    <form action="{{ route('lecturers.chamdiem.phanbien.store', $nhom_id) }}" method="POST">
         @csrf
         
         <div class="row">
@@ -267,34 +267,26 @@
 {{-- JavaScript tự động tính tổng điểm --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Lấy tất cả các input điểm
     const diemInputs = document.querySelectorAll('input[type="number"]');
     
     diemInputs.forEach(input => {
         input.addEventListener('input', function() {
-            // Lấy MSSV từ name attribute
             const match = this.name.match(/sinh_vien\[([^\]]+)\]/);
             if (!match) return;
             
             const mssv = match[1];
-            
-            // Lấy 4 điểm
             const diem1 = parseFloat(document.querySelector(`input[name="sinh_vien[${mssv}][diem_phan_tich]"]`)?.value) || 0;
             const diem2 = parseFloat(document.querySelector(`input[name="sinh_vien[${mssv}][diem_thiet_ke]"]`)?.value) || 0;
             const diem3 = parseFloat(document.querySelector(`input[name="sinh_vien[${mssv}][diem_hien_thuc]"]`)?.value) || 0;
             const diem4 = parseFloat(document.querySelector(`input[name="sinh_vien[${mssv}][diem_kiem_tra]"]`)?.value) || 0;
             
-            // Tính tổng
             const tongDiem = (diem1 + diem2 + diem3 + diem4).toFixed(2);
-            
-            // Hiển thị
             const tongDiemElement = document.getElementById(`tong_diem_${mssv}`);
             if (tongDiemElement) {
                 tongDiemElement.textContent = tongDiem;
             }
         });
         
-        // Trigger để tính tổng ban đầu
         input.dispatchEvent(new Event('input'));
     });
 });

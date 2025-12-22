@@ -4,22 +4,23 @@ namespace App\Services;
 
 use PhpOffice\PhpWord\TemplateProcessor;
 use App\Models\{PhieuChamDiem, DiemSinhVien, Detai};
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class PhieuChamWordExporter
 {
     /**
      * Export phiếu chấm hướng dẫn
      */
-    public function exportHuongDan($nhom, $magv)
+    public function exportHuongDan($nhom_id, $magv)
     {
-        $phieuCham = PhieuChamDiem::where('nhom', $nhom)
+        // Tìm theo nhom_id thay vì nhom
+        $phieuCham = PhieuChamDiem::where('nhom_id', $nhom_id)
             ->where('magv', $magv)
             ->where('loai_phieu', 'huong_dan')
-            ->with(['diemSinhVien.sinhVien', 'giangVien'])
             ->firstOrFail();
 
-        $danhSachSinhVien = Detai::getSinhVienByNhom($nhom);
+        // Lấy danh sách sinh viên theo nhom_id
+        $danhSachSinhVien = Detai::where('nhom_id', $nhom_id)->get();
         $soLuongSV = $danhSachSinhVien->count();
 
         // Chọn template theo số lượng sinh viên
@@ -33,15 +34,16 @@ class PhieuChamWordExporter
     /**
      * Export phiếu chấm phản biện
      */
-    public function exportPhanBien($nhom, $magv)
+    public function exportPhanBien($nhom_id, $magv)
     {
-        $phieuCham = PhieuChamDiem::where('nhom', $nhom)
+        // Tìm theo nhom_id thay vì nhom
+        $phieuCham = PhieuChamDiem::where('nhom_id', $nhom_id)
             ->where('magv', $magv)
             ->where('loai_phieu', 'phan_bien')
-            ->with(['diemSinhVien.sinhVien', 'giangVien'])
             ->firstOrFail();
 
-        $danhSachSinhVien = Detai::getSinhVienByNhom($nhom);
+        // Lấy danh sách sinh viên theo nhom_id
+        $danhSachSinhVien = Detai::where('nhom_id', $nhom_id)->get();
         $soLuongSV = $danhSachSinhVien->count();
 
         // Chọn template theo số lượng sinh viên
@@ -104,10 +106,16 @@ class PhieuChamWordExporter
 
         // === PHẦN XỬ LÝ BÌNH THƯỜNG ===
         
+        // Lấy tên đề tài từ bảng nhom
+        $nhom = DB::table('nhom')->where('id', $phieuCham->nhom_id)->first();
+        $tenDeTai = $nhom ? $nhom->tendt : 'N/A';
+        $tenNhom = $nhom ? $nhom->tennhom : 'N/A';
+
         // Thông tin chung
-        $templateProcessor->setValue('ten_de_tai', $phieuCham->ten_de_tai ?? '');
-        $templateProcessor->setValue('nhom', $phieuCham->nhom ?? '');
-        $giangVien = \DB::table('giangvien')
+        $templateProcessor->setValue('ten_de_tai', $tenDeTai);
+        $templateProcessor->setValue('nhom', $tenNhom);
+        
+        $giangVien = DB::table('giangvien')
             ->where('magv', $phieuCham->magv)
             ->first();
 
@@ -132,16 +140,24 @@ class PhieuChamWordExporter
         // Thông tin sinh viên và điểm
         foreach ($danhSachSinhVien as $index => $sv) {
             $stt = $index + 1;
-            $diemSV = $phieuCham->diemSinhVien->where('mssv', $sv->mssv)->first();
+            
+            // Lấy điểm từ diem_sinh_vien
+            $diemSV = DB::table('diem_sinh_vien')
+                ->where('phieu_cham_id', $phieuCham->id)
+                ->where('mssv', $sv->mssv)
+                ->first();
 
             if (!$diemSV) {
                 continue;
             }
 
+            // Lấy thông tin sinh viên
+            $sinhVien = DB::table('sinhvien')->where('mssv', $sv->mssv)->first();
+
             // Thông tin sinh viên
-            $templateProcessor->setValue("hoten_sv{$stt}", $sv->hoten ?? '');
-            $templateProcessor->setValue("mssv_sv{$stt}", $sv->mssv ?? '');
-            $templateProcessor->setValue("lop_sv{$stt}", $sv->lop ?? '');
+            $templateProcessor->setValue("hoten_sv{$stt}", $sinhVien ? $sinhVien->hoten : '');
+            $templateProcessor->setValue("mssv_sv{$stt}", $sinhVien ? $sinhVien->mssv : '');
+            $templateProcessor->setValue("lop_sv{$stt}", $sinhVien ? $sinhVien->lop : '');
 
             // Điểm chi tiết
             $templateProcessor->setValue("diem_phan_tich_sv{$stt}", number_format($diemSV->diem_phan_tich, 1));
@@ -183,13 +199,13 @@ class PhieuChamWordExporter
                     break;
             }
 
-            // Thêm placeholder dạng text cho file 1 SV
+            // Thêm placeholder dạng text
             $templateProcessor->setValue("de_nghi_text_sv{$stt}", $deNghiText);
         }
 
         // Tạo file output
         $loaiPhieuText = $loaiPhieu == 'huong_dan' ? 'HuongDan' : 'PhanBien';
-        $fileName = "PhieuCham_{$loaiPhieuText}_{$phieuCham->nhom}_" . date('YmdHis') . '.docx';
+        $fileName = "PhieuCham_{$loaiPhieuText}_{$tenNhom}_" . date('YmdHis') . '.docx';
         $outputPath = storage_path('app/public/phieu_cham/' . $fileName);
 
         // Tạo thư mục nếu chưa có

@@ -75,13 +75,13 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex gap-2 justify-content-center">
-                                        <a href="{{ route('lecturers.nhiemvu.create', $group->nhom) }}" 
+                                        <a href="{{ route('lecturers.nhiemvu.create', $group->nhom_id) }}" 
                                            class="btn btn-sm btn-primary">
                                             <i class="fa fa-edit me-1"></i>Điền thông tin
                                         </a>
                                         
                                         @if($group->trangthai == 'Đã điền')
-                                            <a href="{{ route('lecturers.nhiemvu.export', $group->nhom) }}" 
+                                            <a href="{{ route('lecturers.nhiemvu.export', $group->nhom_id) }}" 
                                                class="btn btn-sm btn-success">
                                                 <i class="fa fa-file-word me-1"></i>Xuất Word
                                             </a>

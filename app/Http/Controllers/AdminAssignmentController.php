@@ -139,7 +139,7 @@ class AdminAssignmentController extends Controller
                     DB::table('phancong')->insert([
                         'mssv' => $mssv,
                         'magv' => $magv,
-                        'lg_phancong' => now(),
+                        'tg_phancong' => now(),
                     ]);
                     $successCount++;
                 } else {

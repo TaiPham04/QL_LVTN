@@ -87,14 +87,15 @@
                                                         ->count();
                                                     
                                                     $uncheckedCount = DB::table('hoidong_detai as hdt')
-                                                        ->join('detai as dt', 'hdt.nhom', '=', 'dt.nhom')
+                                                        ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
+                                                        ->join('detai as dt', 'hdt.nhom_id', '=', 'dt.nhom_id')
                                                         ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-                                                        ->where('hdt.mahd', $hd->mahd)
+                                                        ->where('hdt.hoidong_id', $hd->hoidong_id)
                                                         ->get()
                                                         ->filter(function($sv) use ($hd, $soThanhVien) {
                                                             $diemCount = DB::table('hoidong_chamdiem')
                                                                 ->where('mahd', $hd->mahd)
-                                                                ->where('nhom', $sv->nhom)
+                                                                ->where('nhom_id', $sv->nhom_id)
                                                                 ->where('mssv', $sv->mssv)
                                                                 ->count();
                                                             return $diemCount < $soThanhVien;

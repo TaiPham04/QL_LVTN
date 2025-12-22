@@ -100,14 +100,14 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($sinhVienNhom[$deTai->nhom] as $sv)
+                                        @forelse($sinhVienNhom[$deTai->nhom_id] as $sv)
                                             <tr>
                                                 <td><strong>{{ $sv->mssv }}</strong></td>
                                                 <td>{{ $sv->hoten }}</td>
                                                 <td>{{ $sv->lop }}</td>
                                                 
                                                 @php
-                                                    $diemKey = $deTai->nhom . '_' . $sv->mssv;
+                                                    $diemKey = $deTai->nhom_id . '_' . $sv->mssv;
                                                     $diemSinhVien = $diemHienTai->get($diemKey, []);
                                                     $tongDiem = 0;
                                                     $diemCount = 0;
@@ -125,10 +125,10 @@
                                                         
                                                         @if(in_array($vaiTroGV, ['chu_tich', 'thu_ky']))
                                                             <input type="number" step="0.01" min="0" max="10"
-                                                                   name="diem[{{ $deTai->nhom }}_{{ $sv->mssv }}][{{ $tv->magv }}]"
+                                                                   name="diem[{{ $deTai->nhom_id }}_{{ $sv->mssv }}][{{ $tv->magv }}]"
                                                                    class="form-control form-control-sm text-center diem-input"
                                                                    value="{{ $diem }}"
-                                                                   data-nhom="{{ $deTai->nhom }}"
+                                                                   data-nhom="{{ $deTai->nhom_id }}"
                                                                    data-mssv="{{ $sv->mssv }}">
                                                         @else
                                                             <div class="form-control form-control-sm text-center bg-light">
@@ -140,7 +140,7 @@
 
                                                 <td class="text-center fw-bold">
                                                     @if($diemCount > 0)
-                                                        <span class="diem-trungbinh" data-nhom="{{ $deTai->nhom }}" data-mssv="{{ $sv->mssv }}">
+                                                        <span class="diem-trungbinh" data-nhom="{{ $deTai->nhom_id }}" data-mssv="{{ $sv->mssv }}">
                                                             {{ round($tongDiem / count($thanhVien), 2) }}
                                                         </span>
                                                     @else

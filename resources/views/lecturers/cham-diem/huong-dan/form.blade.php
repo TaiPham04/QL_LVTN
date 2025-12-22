@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <form action="{{ route('lecturers.chamdiem.huongdan.store', $nhom) }}" method="POST">
+    <form action="{{ route('lecturers.chamdiem.huongdan.store', $nhom_id) }}" method="POST">
         @csrf
         
         <div class="row">

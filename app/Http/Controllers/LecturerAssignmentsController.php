@@ -38,14 +38,15 @@ class LecturerAssignmentsController extends Controller
         $students = DB::table('sinhvien')
             ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
             ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+            ->leftJoin('nhom', 'detai.nhom_id', '=', 'nhom.id')
             ->where('phancong.magv', $lecturer->magv)  // ← LỌC THEO GV HIỆN TẠI
             ->select(
                 'sinhvien.mssv',
                 'sinhvien.hoten',
                 'sinhvien.lop',
-                'detai.nhom',
-                'detai.tendt',
-                'detai.trangthai'
+                'nhom.tennhom as nhom',
+                'nhom.tendt',
+                'nhom.trangthai'
             )
             ->orderBy('sinhvien.hoten')
             ->get();
@@ -83,18 +84,26 @@ class LecturerAssignmentsController extends Controller
             $nhomCode = Detai::generateNhomCode($lecturer->magv, $sinhvienIds);
             
             // ✅ BƯỚC 2: KIỂM TRA MÃ NHÓM ĐÃ TỒN TẠI CHƯA
-            if (Detai::nhomCodeExists($nhomCode)) {
+            $nhom = DB::table('nhom')->where('tennhom', $nhomCode)->first();
+            if ($nhom) {
                 return back()->with('error', 'Mã nhóm ' . $nhomCode . ' đã tồn tại! Vui lòng kiểm tra lại.');
             }
 
-            // ✅ BƯỚC 3: THÊM TỪNG SINH VIÊN VÀO NHÓM
+            // ✅ BƯỚC 3: TẠO NHÓM MỚI (lưu tendt + trangthai vào nhom)
+            $nhom_id = DB::table('nhom')->insertGetId([
+                'tennhom' => $nhomCode,
+                'tendt' => $request->input('tendt'),
+                'trangthai' => $request->input('trangthai'),
+                'magv' => $lecturer->magv,
+                'created_at' => now(),
+            ]);
+
+            // ✅ BƯỚC 4: THÊM TỪNG SINH VIÊN VÀO BẢNG DETAI (chỉ lưu tham chiếu)
             foreach ($sinhvienIds as $mssv) {
                 Detai::create([
-                    'tendt' => $request->input('tendt'),
                     'mssv' => $mssv,
                     'magv' => $lecturer->magv,
-                    'nhom' => $nhomCode, // ✅ SỬ DỤNG MÃ TỰ ĐỘNG
-                    'trangthai' => $request->input('trangthai'),
+                    'nhom_id' => $nhom_id,
                 ]);
             }
 
@@ -114,8 +123,10 @@ class LecturerAssignmentsController extends Controller
     {
         $lecturer = session('user');
         
-        $deTai = Detai::where('nhom', $nhom)
-            ->where('magv', $lecturer->magv)
+        $deTai = DB::table('detai')
+            ->join('nhom', 'detai.nhom_id', '=', 'nhom.id')
+            ->where('nhom.tennhom', $nhom)
+            ->where('detai.magv', $lecturer->magv)
             ->first();
 
         if (!$deTai) {
@@ -123,7 +134,7 @@ class LecturerAssignmentsController extends Controller
                 ->with('error', 'Nhóm không tồn tại hoặc bạn không có quyền truy cập');
         }
 
-        $students = Detai::getSinhVienByNhom($nhom);
+        $students = Detai::getSinhVienByNhomId($deTai->nhom_id);
 
         return view('lecturers.assignments.show', compact('deTai', 'students', 'nhom'));
     }
@@ -135,8 +146,10 @@ class LecturerAssignmentsController extends Controller
     {
         $lecturer = session('user');
         
-        $deTai = Detai::where('nhom', $nhom)
-            ->where('magv', $lecturer->magv)
+        $deTai = DB::table('detai')
+            ->join('nhom', 'detai.nhom_id', '=', 'nhom.id')
+            ->where('nhom.tennhom', $nhom)
+            ->where('detai.magv', $lecturer->magv)
             ->first();
 
         if (!$deTai) {
@@ -144,7 +157,7 @@ class LecturerAssignmentsController extends Controller
                 ->with('error', 'Nhóm không tồn tại');
         }
 
-        $students = Detai::getSinhVienByNhom($nhom);
+        $students = Detai::getSinhVienByNhomId($deTai->nhom_id);
         $availableStudents = DB::table('sinhvien')
             ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
             ->where('phancong.magv', $lecturer->magv)
@@ -156,7 +169,7 @@ class LecturerAssignmentsController extends Controller
     }
 
     /**
-     * Cập nhật nhóm (chỉ tên đề tài + trạng thái, MÃ NHÓM KHÔNG ĐƯỢC SỬA)
+     * Cập nhật nhóm (chỉ tên đề tài + trạng thái ở bảng nhom, MÃ NHÓM KHÔNG ĐƯỢC SỬA)
      */
     public function update(Request $request, $nhom)
     {
@@ -168,8 +181,8 @@ class LecturerAssignmentsController extends Controller
         try {
             $lecturer = session('user');
             
-            Detai::where('nhom', $nhom)
-                ->where('magv', $lecturer->magv)
+            DB::table('nhom')
+                ->where('tennhom', $nhom)
                 ->update([
                     'tendt' => $request->input('tendt'),
                     'trangthai' => $request->input('trangthai'),
@@ -192,8 +205,10 @@ class LecturerAssignmentsController extends Controller
         try {
             $lecturer = session('user');
             
-            Detai::where('nhom', $nhom)
-                ->where('magv', $lecturer->magv)
+            DB::table('detai')
+                ->join('nhom', 'detai.nhom_id', '=', 'nhom.id')
+                ->where('nhom.tennhom', $nhom)
+                ->where('detai.magv', $lecturer->magv)
                 ->delete();
 
             return redirect()->route('lecturers.assignments.form')
@@ -215,8 +230,8 @@ class LecturerAssignmentsController extends Controller
             $changes = $request->input('trangthai', []);
 
             foreach ($changes as $change) {
-                Detai::where('nhom', $change['nhom'])
-                    ->where('magv', $lecturer->magv)
+                DB::table('nhom')
+                    ->where('tennhom', $change['nhom'])
                     ->update(['trangthai' => $change['trangthai']]);
             }
 
@@ -246,8 +261,8 @@ class LecturerAssignmentsController extends Controller
 
             $lecturer = session('user');
 
-            Detai::where('nhom', $nhom)
-                ->where('magv', $lecturer->magv)
+            DB::table('nhom')
+                ->where('tennhom', $nhom)
                 ->update(['trangthai' => $request->input('trangthai')]);
 
             return response()->json([

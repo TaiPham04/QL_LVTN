@@ -8,20 +8,19 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Color;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChamDiemHoiDongExport
 {
     /**
      * Kiểm tra tất cả đề tài đã chấm điểm đủ chưa
      */
-    public function checkAllScored($mahd)
+    public function checkAllScored($hoidong_id)
     {
         // Lấy danh sách đề tài
         $deTaiList = DB::table('hoidong_detai as hdt')
-            ->join('detai as dt', 'hdt.nhom', '=', 'dt.nhom')
-            ->where('hdt.mahd', $mahd)
-            ->select('dt.nhom', 'dt.tendt')
+            ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
+            ->where('hdt.hoidong_id', $hoidong_id)
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt')
             ->distinct()
             ->get();
 
@@ -35,7 +34,7 @@ class ChamDiemHoiDongExport
 
         // Lấy số thành viên hội đồng
         $soThanhVien = DB::table('thanhvienhoidong')
-            ->where('mahd', $mahd)
+            ->where('hoidong_id', $hoidong_id)
             ->count();
 
         if ($soThanhVien === 0) {
@@ -52,15 +51,16 @@ class ChamDiemHoiDongExport
         foreach ($deTaiList as $deTai) {
             $sinhVienNhom = DB::table('detai as dt')
                 ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-                ->where('dt.nhom', $deTai->nhom)
+                ->where('dt.nhom_id', $deTai->nhom_id)
                 ->select('sv.mssv')
                 ->get();
 
             foreach ($sinhVienNhom as $sv) {
                 $diemCount = DB::table('hoidong_chamdiem')
-                    ->where('mahd', $mahd)
-                    ->where('nhom', $deTai->nhom)
+                    ->where('hoidong_id', $hoidong_id)
+                    ->where('nhom_id', $deTai->nhom_id)
                     ->where('mssv', $sv->mssv)
+                    ->distinct('magv_danh_gia')
                     ->count();
 
                 if ($diemCount < $soThanhVien) {
@@ -79,13 +79,13 @@ class ChamDiemHoiDongExport
     }
 
     /**
-     * Xuất file Excel
+     * Xuất file Excel - Lưu vào disk
      */
-    public function exportExcel($mahd)
+    public function exportExcel($hoidong_id)
     {
         // Lấy thông tin hội đồng
         $hoiDong = DB::table('hoidong')
-            ->where('mahd', $mahd)
+            ->where('id', $hoidong_id)
             ->first();
 
         if (!$hoiDong) {
@@ -95,16 +95,16 @@ class ChamDiemHoiDongExport
         // Lấy danh sách thành viên hội đồng
         $thanhVien = DB::table('thanhvienhoidong as tv')
             ->join('giangvien as gv', 'tv.magv', '=', 'gv.magv')
-            ->where('tv.mahd', $mahd)
+            ->where('tv.hoidong_id', $hoidong_id)
             ->select('tv.magv', 'gv.hoten', 'tv.vai_tro')
             ->orderBy('tv.vai_tro')
             ->get();
 
         // Lấy danh sách đề tài
         $deTaiList = DB::table('hoidong_detai as hdt')
-            ->join('detai as dt', 'hdt.nhom', '=', 'dt.nhom')
-            ->where('hdt.mahd', $mahd)
-            ->select('dt.nhom', 'dt.tendt')
+            ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
+            ->where('hdt.hoidong_id', $hoidong_id)
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt')
             ->distinct()
             ->get();
 
@@ -113,7 +113,7 @@ class ChamDiemHoiDongExport
         foreach ($deTaiList as $deTai) {
             $sinhVienNhom = DB::table('detai as dt')
                 ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-                ->where('dt.nhom', $deTai->nhom)
+                ->where('dt.nhom_id', $deTai->nhom_id)
                 ->select('sv.mssv', 'sv.hoten', 'sv.lop')
                 ->get();
 
@@ -129,8 +129,8 @@ class ChamDiemHoiDongExport
                 // Lấy điểm từng thành viên
                 foreach ($thanhVien as $tv) {
                     $diem = DB::table('hoidong_chamdiem')
-                        ->where('mahd', $mahd)
-                        ->where('nhom', $deTai->nhom)
+                        ->where('hoidong_id', $hoidong_id)
+                        ->where('nhom_id', $deTai->nhom_id)
                         ->where('mssv', $sv->mssv)
                         ->where('magv_danh_gia', $tv->magv)
                         ->value('diem') ?? '';
@@ -146,7 +146,7 @@ class ChamDiemHoiDongExport
     }
 
     /**
-     * Tạo và trả về file Excel
+     * Tạo và lưu file Excel vào disk
      */
     private function generateExcel($data, $tenHoiDong, $thanhVien)
     {
@@ -167,7 +167,7 @@ class ChamDiemHoiDongExport
         // Tiêu đề cột
         $headers = ['Nhóm', 'MSSV', 'Tên SV', 'Lớp', 'Tên Đề Tài'];
         
-        // Thêm tên thành viên vào header (không viết tắt)
+        // Thêm tên thành viên vào header
         foreach ($thanhVien as $tv) {
             $headers[] = $tv->hoten;
         }
@@ -203,7 +203,6 @@ class ChamDiemHoiDongExport
                 $sheet->setCellValue($col . $row, $diemValue);
                 $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 
-                // Nếu có điểm thì thêm vào mảng tính TB
                 if ($diemValue !== '') {
                     $diemList[] = $diemValue;
                 }
@@ -211,12 +210,10 @@ class ChamDiemHoiDongExport
                 $col++;
             }
 
-            // Cột Điểm TB (tổng)
+            // Cột Điểm TB
             if (!empty($diemList)) {
                 $diemTB = round(array_sum($diemList) / count($diemList), 2);
                 $sheet->setCellValue($col . $row, $diemTB);
-            } else {
-                $sheet->setCellValue($col . $row, '');
             }
             $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -230,45 +227,23 @@ class ChamDiemHoiDongExport
         $sheet->getColumnDimension('D')->setWidth(12);
         $sheet->getColumnDimension('E')->setWidth(30);
         
-        // Độ rộng cột thành viên
         $col = 'F';
         for ($i = 0; $i < count($thanhVien); $i++) {
             $sheet->getColumnDimension($col)->setWidth(25);
             $col++;
         }
 
-        // Xuất file
+        // Lưu file vào disk
         $filename = 'HoiDong_' . now()->format('YmdHis') . '.xlsx';
-        $writer = new Xlsx($spreadsheet);
-
-        return new StreamedResponse(
-            function() use ($writer) {
-                $writer->save('php://output');
-            },
-            200,
-            [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Pragma' => 'no-cache',
-                'Expires' => '0'
-            ]
-        );
-    }
-
-    /**
-     * Viết tắt tên giảng viên
-     */
-    private function abbreviateName($fullName)
-    {
-        $parts = explode(' ', trim($fullName));
-        if (count($parts) <= 1) {
-            return $fullName;
+        $filepath = storage_path('app/temp/' . $filename);
+        
+        if (!is_dir(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
         }
+        
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filepath);
 
-        $firstName = $parts[0];
-        $lastName = implode(' ', array_slice($parts, 1));
-
-        return strtoupper(substr($firstName, 0, 1)) . '. ' . $lastName;
+        return $filepath;
     }
 }

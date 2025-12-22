@@ -18,7 +18,7 @@ class Detai extends Model
         'tendt',
         'mssv',
         'magv',
-        'nhom',
+        'nhom_id',
         'trangthai',
     ];
 
@@ -36,23 +36,23 @@ class Detai extends Model
 
     // === HELPER METHODS ===
     
-    public static function getSinhVienByNhom($nhom)
+    public static function getSinhVienByNhomId($nhom_id)
     {
-        return self::where('detai.nhom', $nhom)
+        return self::where('detai.nhom_id', $nhom_id)
             ->join('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
-            ->select('sinhvien.*', 'detai.tendt', 'detai.nhom', 'detai.madt')
+            ->select('sinhvien.*', 'detai.tendt', 'detai.nhom_id', 'detai.madt')
             ->orderBy('sinhvien.mssv')
             ->get();
     }
 
-    public static function getDeTaiByNhom($nhom)
+    public static function getDeTaiByNhomId($nhom_id)
     {
-        return self::where('nhom', $nhom)->first();
+        return self::where('nhom_id', $nhom_id)->first();
     }
 
-    public static function countSinhVienInNhom($nhom)
+    public static function countSinhVienInNhomId($nhom_id)
     {
-        return self::where('nhom', $nhom)->count();
+        return self::where('nhom_id', $nhom_id)->count();
     }
 
     /**
@@ -89,7 +89,9 @@ class Detai extends Model
      */
     public static function nhomCodeExists($nhomCode)
     {
-        return self::where('nhom', $nhomCode)->exists();
+        return \Illuminate\Support\Facades\DB::table('nhom')
+            ->where('tennhom', $nhomCode)
+            ->exists();
     }
 
     // === TRẠNG THÁI ===

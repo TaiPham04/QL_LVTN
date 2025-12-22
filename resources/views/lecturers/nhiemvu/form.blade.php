@@ -10,7 +10,7 @@
                     <h3 class="mb-1">
                         <i class="fa fa-clipboard-list me-2 text-primary"></i>Nhiệm Vụ Bài Thi Tốt Nghiệp
                     </h3>
-                    <p class="text-muted mb-0">Nhóm: <strong>{{ $group->nhom }}</strong> - <strong>{{ $group->tendt }}</strong></p>
+                    <p class="text-muted mb-0">Nhóm: <strong>{{ $group->tennhom }}</strong> - <strong>{{ $group->tendt }}</strong></p>
                 </div>
                 <a href="{{ route('lecturers.nhiemvu.index') }}" class="btn btn-outline-secondary">
                     <i class="fa fa-arrow-left me-2"></i>Quay lại
@@ -60,7 +60,7 @@
             {{-- FORM --}}
             <form method="POST" action="{{ route('lecturers.nhiemvu.store') }}">
                 @csrf
-                <input type="hidden" name="nhom" value="{{ $group->nhom }}">
+                <input type="hidden" name="nhom_id" value="{{ $nhom_id }}">
 
                 {{-- THÔNG TIN SINH VIÊN --}}
                 <div class="card border-0 shadow-sm mb-4">

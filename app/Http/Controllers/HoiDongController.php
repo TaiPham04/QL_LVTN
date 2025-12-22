@@ -19,17 +19,18 @@ class HoiDongController extends Controller
     public function index()
     {
         $danhSachHoiDong = DB::table('hoidong as h')
-            ->leftJoin('thanhvienhoidong as tv', 'h.mahd', '=', 'tv.mahd')
-            ->leftJoin('hoidong_detai as hd', 'h.mahd', '=', 'hd.mahd')
+            ->leftJoin('thanhvienhoidong as tv', 'h.id', '=', 'tv.hoidong_id')
+            ->leftJoin('hoidong_detai as hd', 'h.id', '=', 'hd.hoidong_id')
             ->select(
+                'h.id',
                 'h.mahd',
                 'h.tenhd',
                 'h.trang_thai',
                 'h.ghi_chu',
                 DB::raw('COUNT(DISTINCT tv.magv) as so_thanh_vien'),
-                DB::raw('COUNT(DISTINCT hd.nhom) as so_de_tai')
+                DB::raw('COUNT(DISTINCT hd.nhom_id) as so_de_tai')
             )
-            ->groupBy('h.mahd', 'h.tenhd', 'h.trang_thai', 'h.ghi_chu')
+            ->groupBy('h.id', 'h.mahd', 'h.tenhd', 'h.trang_thai', 'h.ghi_chu')
             ->orderBy('h.mahd', 'desc')
             ->get();
 
@@ -52,7 +53,7 @@ class HoiDongController extends Controller
 
     /**
      * Lưu hội đồng mới
-     * ✅ CHỈNH: Cho phép 3-4 thành viên
+     * ✅ CHỈNH: Cho phép 3-4 thành viên, fix hoidong_id, loại bỏ updated_at
      */
     public function store(Request $request)
     {
@@ -91,19 +92,21 @@ class HoiDongController extends Controller
         DB::beginTransaction();
         try {
             // Tạo hội đồng
-            HoiDong::create([
+            $hoiDong = HoiDong::create([
                 'mahd' => $request->mahd,
                 'tenhd' => $request->tenhd,
                 'ghi_chu' => $request->ghi_chu,
                 'trang_thai' => 'dang_mo'
             ]);
 
-            // ✅ CHỈNH: Thêm thành viên với vai trò
+            // ✅ FIX: Lấy hoidong_id từ record vừa tạo, rồi thêm thành viên
             foreach ($request->thanh_vien as $index => $magv) {
-                ThanhVienHoiDong::create([
+                DB::table('thanhvienhoidong')->insert([
+                    'hoidong_id' => $hoiDong->id,
                     'mahd' => $request->mahd,
                     'magv' => $magv,
-                    'vai_tro' => $request->vai_tro[$index] ?? 'thanh_vien'  // ✅ Lưu vai trò
+                    'vai_tro' => $request->vai_tro[$index] ?? 'thanh_vien',
+                    'created_at' => now()
                 ]);
             }
 
@@ -113,6 +116,7 @@ class HoiDongController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Lỗi tạo hội đồng: ' . $e->getMessage());
             return back()->withInput()
                 ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
@@ -121,30 +125,31 @@ class HoiDongController extends Controller
     /**
      * Xem chi tiết hội đồng
      */
-    public function show($mahd)
+    public function show($id)
     {
-        $hoiDong = HoiDong::findOrFail($mahd);
+        $hoiDong = HoiDong::findOrFail($id);
 
         // Lấy thành viên
         $thanhVien = DB::table('thanhvienhoidong as tv')
             ->join('giangvien as g', 'tv.magv', '=', 'g.magv')
-            ->where('tv.mahd', $mahd)
+            ->where('tv.hoidong_id', $id)
             ->select('g.magv', 'g.hoten', 'g.email', 'tv.vai_tro')
             ->get();
 
         // Lấy đề tài đã phân công
         $deTai = DB::table('hoidong_detai as hd')
-            ->join('detai as d', 'hd.nhom', '=', 'd.nhom')
+            ->join('nhom as n', 'hd.nhom_id', '=', 'n.id')
+            ->join('detai as d', 'hd.mdt', '=', 'd.madt')
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
-            ->where('hd.mahd', $mahd)
-            ->select('d.nhom', 'd.tendt', 'd.magv', 'g.hoten as gv_huongdan')
+            ->where('hd.hoidong_id', $id)
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan')
             ->distinct()
             ->get();
 
         // Lấy sinh viên trong các nhóm
         $sinhVienTheoNhom = [];
         foreach ($deTai as $dt) {
-            $sinhVienTheoNhom[$dt->nhom] = Detai::getSinhVienByNhom($dt->nhom);
+            $sinhVienTheoNhom[$dt->nhom_id] = Detai::where('nhom_id', $dt->nhom_id)->get();
         }
 
         return view('hoidong.show', compact('hoiDong', 'thanhVien', 'deTai', 'sinhVienTheoNhom'));
@@ -153,12 +158,12 @@ class HoiDongController extends Controller
     /**
      * Xóa hội đồng
      */
-    public function destroy($mahd)
+    public function destroy($id)
     {
         try {
-            $hoiDong = HoiDong::findOrFail($mahd);
+            $hoiDong = HoiDong::findOrFail($id);
             
-            $soDeTai = HoiDongDeTai::where('mahd', $mahd)->count();
+            $soDeTai = HoiDongDeTai::where('hoidong_id', $id)->count();
             
             if ($soDeTai > 0) {
                 return back()->with('error', 
@@ -183,11 +188,11 @@ class HoiDongController extends Controller
     /**
      * Form phân công đề tài cho hội đồng
      */
-    public function phanCongForm($mahd)
+    public function phanCongForm($id)
     {
-        $hoiDong = HoiDong::findOrFail($mahd);
+        $hoiDong = HoiDong::findOrFail($id);
 
-        // ✅ CHỈNH: Kiểm tra hội đồng đã đủ 3 thành viên chưa (không thay đổi logic)
+        // ✅ CHỈNH: Kiểm tra hội đồng đã đủ 3 thành viên chưa
         if ($hoiDong->thanhVien()->count() < 3) {
             return back()->with('error', 'Hội đồng chưa đủ 3 thành viên!');
         }
@@ -197,33 +202,35 @@ class HoiDongController extends Controller
 
         // Lấy đề tài CHƯA phân công
         $deTaiKhaDung = DB::table('detai as d')
-            ->leftJoin('hoidong_detai as hd', 'd.nhom', '=', 'hd.nhom')
+            ->join('nhom as n', 'd.nhom_id', '=', 'n.id')
+            ->leftJoin('hoidong_detai as hd', 'n.id', '=', 'hd.nhom_id')
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
-            ->whereNotNull('d.nhom')
-            ->whereNull('hd.nhom')
+            ->whereNotNull('d.nhom_id')
+            ->whereNull('hd.nhom_id')
             ->whereNotIn('d.magv', $magvTrongHoiDong)
-            ->select('d.nhom', 'd.tendt', 'd.magv', 'g.hoten as gv_huongdan')
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan')
             ->distinct()
             ->get();
 
         // Lấy sinh viên cho mỗi nhóm
         $sinhVienTheoNhom = [];
         foreach ($deTaiKhaDung as $dt) {
-            $sinhVienTheoNhom[$dt->nhom] = Detai::getSinhVienByNhom($dt->nhom);
+            $sinhVienTheoNhom[$dt->nhom_id] = Detai::where('nhom_id', $dt->nhom_id)->get();
         }
 
         // Đề tài đã phân công
         $deTaiDaPhanCong = DB::table('hoidong_detai as hd')
-            ->join('detai as d', 'hd.nhom', '=', 'd.nhom')
+            ->join('nhom as n', 'hd.nhom_id', '=', 'n.id')
+            ->join('detai as d', 'hd.mdt', '=', 'd.madt')
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
-            ->where('hd.mahd', $mahd)
-            ->select('d.nhom', 'd.tendt', 'd.magv', 'g.hoten as gv_huongdan')
+            ->where('hd.hoidong_id', $id)
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan')
             ->distinct()
             ->get();
 
         $sinhVienDaPhanCong = [];
         foreach ($deTaiDaPhanCong as $dt) {
-            $sinhVienDaPhanCong[$dt->nhom] = Detai::getSinhVienByNhom($dt->nhom);
+            $sinhVienDaPhanCong[$dt->nhom_id] = Detai::where('nhom_id', $dt->nhom_id)->get();
         }
 
         return view('hoidong.phan-cong', compact(
@@ -238,27 +245,40 @@ class HoiDongController extends Controller
     /**
      * Lưu phân công đề tài
      */
-    public function phanCongStore(Request $request, $mahd)
+    public function phanCongStore(Request $request, $id)
     {
         $request->validate([
-            'nhom' => 'required|array|min:1',
-            'nhom.*' => 'required|exists:detai,nhom',
+            'nhom_id' => 'required|array|min:1',
+            'nhom_id.*' => 'required|exists:nhom,id',
         ], [
-            'nhom.required' => 'Vui lòng chọn ít nhất 1 đề tài',
+            'nhom_id.required' => 'Vui lòng chọn ít nhất 1 đề tài',
         ]);
 
         DB::beginTransaction();
         try {
-            foreach ($request->nhom as $nhom) {
-                $exists = HoiDongDeTai::where('nhom', $nhom)->exists();
+            $hoiDong = HoiDong::findOrFail($id);
+
+            foreach ($request->nhom_id as $nhom_id) {
+                $exists = HoiDongDeTai::where('nhom_id', $nhom_id)->exists();
                 if ($exists) {
                     DB::rollBack();
-                    return back()->with('error', "Nhóm {$nhom} đã được phân công cho hội đồng khác!");
+                    return back()->with('error', "Nhóm này đã được phân công cho hội đồng khác!");
                 }
 
-                HoiDongDeTai::create([
-                    'mahd' => $mahd,
-                    'nhom' => $nhom
+                // Lấy mdt từ detai
+                $detai = DB::table('detai')->where('nhom_id', $nhom_id)->first();
+                
+                if (!$detai) {
+                    DB::rollBack();
+                    return back()->with('error', "Không tìm thấy đề tài cho nhóm này!");
+                }
+
+                // ✅ FIX: Thêm hoidong_id vào insert
+                DB::table('hoidong_detai')->insert([
+                    'hoidong_id' => $hoiDong->id,  // ← THÊM DÒNG NÀY
+                    'nhom_id' => $nhom_id,
+                    'mdt' => $detai->madt,
+                    'created_at' => now()
                 ]);
             }
 
@@ -267,6 +287,7 @@ class HoiDongController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Lỗi phân công đề tài: ' . $e->getMessage());
             return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
     }
@@ -274,15 +295,16 @@ class HoiDongController extends Controller
     /**
      * Xóa đề tài khỏi hội đồng
      */
-    public function phanCongDelete($mahd, $nhom)
+    public function phanCongDelete($id, $nhom_id)
     {
         try {
-            HoiDongDeTai::where('mahd', $mahd)
-                ->where('nhom', $nhom)
+            HoiDongDeTai::where('hoidong_id', $id)
+                ->where('nhom_id', $nhom_id)
                 ->delete();
 
             return back()->with('success', 'Đã xóa đề tài khỏi hội đồng!');
         } catch (\Exception $e) {
+            \Log::error('Lỗi xóa đề tài: ' . $e->getMessage());
             return back()->with('error', 'Có lỗi: ' . $e->getMessage());
         }
     }
@@ -290,11 +312,11 @@ class HoiDongController extends Controller
     /**
      * Export Excel danh sách đề tài của hội đồng
      */
-    public function exportExcel($mahd)
+    public function exportExcel($id)
     {
         try {
             $exporter = new HoiDongExcelExporter();
-            $filePath = $exporter->export($mahd);
+            $filePath = $exporter->export($id);
             
             return response()->download($filePath)->deleteFileAfterSend(true);
             
@@ -303,4 +325,3 @@ class HoiDongController extends Controller
         }
     }
 }
-?>

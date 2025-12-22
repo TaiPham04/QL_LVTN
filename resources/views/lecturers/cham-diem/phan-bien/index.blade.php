@@ -85,14 +85,14 @@
                                             @endif
                                         </td>
                                         <td class="text-center">
-                                            <a href="{{ route('lecturers.chamdiem.phanbien.form', $nhom->nhom) }}" 
+                                            <a href="{{ route('lecturers.chamdiem.phanbien.form', $nhom->nhom_id) }}" 
                                                class="btn btn-sm {{ $nhom->da_cham ? 'btn-warning' : 'btn-primary' }}">
                                                 <i class="fa {{ $nhom->da_cham ? 'fa-edit' : 'fa-pen' }} me-1"></i>
                                                 {{ $nhom->da_cham ? 'Sửa điểm' : 'Chấm điểm' }}
                                             </a>
 
                                             @if($nhom->da_cham)
-                                                <a href="{{ route('lecturers.chamdiem.phanbien.export', $nhom->nhom) }}" 
+                                                <a href="{{ route('lecturers.chamdiem.phanbien.export', $nhom->nhom_id) }}" 
                                                    class="btn btn-sm btn-success">
                                                     <i class="fa fa-file-word me-1"></i>Xuất Word
                                                 </a>
