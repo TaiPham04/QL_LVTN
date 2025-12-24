@@ -45,8 +45,9 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th width="5%" class="text-center">STT</th>
-                                        <th width="15%">Mã Hội Đồng</th>
-                                        <th width="30%">Tên Hội Đồng</th>
+                                        <th width="12%">Mã Hội Đồng</th>
+                                        <th width="20%">Tên Hội Đồng</th>
+                                        <th width="13%" class="text-center">Ngày Hội Đồng</th>
                                         <th width="10%" class="text-center">Thành Viên</th>
                                         <th width="10%" class="text-center">Đề Tài</th>
                                         <th width="10%" class="text-center">Trạng Thái</th>
@@ -61,6 +62,14 @@
                                             <strong class="text-primary">{{ $hd->mahd }}</strong>
                                         </td>
                                         <td>{{ $hd->tenhd }}</td>
+                                        <td class="text-center">
+                                            @if($hd->ngay_hoidong)
+                                                <i class="fa fa-calendar me-2 text-primary"></i>
+                                                {{ \Carbon\Carbon::parse($hd->ngay_hoidong)->format('d/m/Y') }}
+                                            @else
+                                                <span class="text-muted">Chưa chọn</span>
+                                            @endif
+                                        </td>
                                         <td class="text-center">
                                             @if($hd->so_thanh_vien == 3)
                                                 <span class="badge bg-success">

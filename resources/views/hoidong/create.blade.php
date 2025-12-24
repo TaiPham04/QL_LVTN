@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <form action="{{ route('admin.hoidong.store') }}" method="POST">
+    <form id="hoiDongForm" action="{{ route('admin.hoidong.store') }}" method="POST">
         @csrf
         
         <div class="row">
@@ -24,6 +24,13 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                             </div>
                         @endif
+
+                        <div id="autoSaveAlert" style="display: none;">
+                            <div class="alert alert-success alert-dismissible fade show">
+                                <i class="fa fa-check-circle me-2"></i><span id="autoSaveMsg"></span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        </div>
 
                         {{-- Mã hội đồng --}}
                         <div class="mb-3">
@@ -58,6 +65,30 @@
                             @error('tenhd')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+
+                        {{-- Ngày hội đồng --}}
+                        <div class="mb-3">
+                            <label for="ngay_hoidong" class="form-label fw-bold">
+                                <i class="fa fa-calendar me-2"></i>Ngày Hội Đồng Diễn Ra <span class="text-danger">*</span>
+                                <span id="savingIndicator" style="display: none; color: #ff9800;">
+                                    <i class="fa fa-spinner fa-spin"></i> Đang lưu...
+                                </span>
+                                <span id="savedIndicator" style="display: none; color: #4caf50;">
+                                    <i class="fa fa-check-circle"></i> Đã lưu
+                                </span>
+                            </label>
+                            <input type="date" 
+                                   class="form-control @error('ngay_hoidong') is-invalid @enderror" 
+                                   id="ngay_hoidong" 
+                                   name="ngay_hoidong" 
+                                   value="{{ old('ngay_hoidong') }}"
+                                   min="{{ date('Y-m-d') }}"
+                                   required>
+                            @error('ngay_hoidong')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="text-muted">Chọn ngày hội đồng sẽ diễn ra (từ hôm nay trở đi)</small>
                         </div>
 
                         {{-- Ghi chú --}}
@@ -96,15 +127,11 @@
                                                 </label>
                                                 <select name="thanh_vien[]" 
                                                         class="form-select @error('thanh_vien.'.$i-1) is-invalid @enderror giangvienSelect" 
+                                                        data-index="{{ $i - 1 }}"
                                                         required>
                                                     <option value="">-- Chọn giảng viên --</option>
-                                                    @foreach($danhSachGiangVien as $gv)
-                                                        <option value="{{ $gv->magv }}" 
-                                                            {{ (old('thanh_vien.'.$i-1) == $gv->magv) ? 'selected' : '' }}>
-                                                            {{ $gv->hoten }}
-                                                        </option>
-                                                    @endforeach
                                                 </select>
+                                                <small class="text-muted">Đang tải danh sách...</small>
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label fw-bold">Vai Trò</label>
@@ -146,6 +173,7 @@
                                     <li>Phải có đúng <strong>1 Chủ tịch</strong> và <strong>1 Thư ký</strong></li>
                                     <li>Không được chọn trùng giảng viên</li>
                                     <li>Thành viên thứ 4 <strong>có thể để trống</strong> (nullable)</li>
+                                    <li>Danh sách giảng viên sẽ tự cập nhật dựa trên ngày được chọn</li>
                                 </ul>
                             </div>
                         </div>
@@ -166,30 +194,110 @@
 </div>
 
 <script>
-// ✅ FIX: Lọc giảng viên đã chọn - Ẩn giảng viên trùng lặp
+let currentDate = null;
+const savedDate = new Set();
+
+// ✅ AUTO SAVE NGÀY - Khi thay đổi ngày hội đồng
+document.getElementById('ngay_hoidong').addEventListener('change', function() {
+    const ngay = this.value;
+    const savingIndicator = document.getElementById('savingIndicator');
+    const savedIndicator = document.getElementById('savedIndicator');
+    
+    if (!ngay) return;
+
+    savingIndicator.style.display = 'inline';
+    savedIndicator.style.display = 'none';
+
+    // Lưu ngày vào session/localStorage
+    fetch('{{ route("admin.hoidong.api.save-date") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+        },
+        body: JSON.stringify({ ngay_hoidong: ngay })
+    })
+    .then(response => response.json())
+    .then(data => {
+        currentDate = ngay;
+        savingIndicator.style.display = 'none';
+        savedIndicator.style.display = 'inline';
+        
+        // Tải lại danh sách giảng viên
+        loadGiangVienList(ngay);
+        
+        setTimeout(() => {
+            savedIndicator.style.display = 'none';
+        }, 3000);
+    })
+    .catch(error => {
+        console.error('Lỗi lưu ngày:', error);
+        savingIndicator.style.display = 'none';
+    });
+});
+
+// ✅ LOAD DANH SÁCH GIẢNG VIÊN - Dựa trên ngày được chọn
+function loadGiangVienList(ngay) {
+    if (!ngay) return;
+
+    fetch('{{ route("admin.hoidong.api.get-giangvien") }}?ngay=' + ngay, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Cập nhật tất cả dropdown giảng viên
+        document.querySelectorAll('.giangvienSelect').forEach(select => {
+            const currentValue = select.value;
+            
+            // Xóa options cũ (trừ option đầu tiên)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // Thêm options mới
+            data.forEach(gv => {
+                const option = document.createElement('option');
+                option.value = gv.magv;
+                option.textContent = gv.hoten;
+                select.appendChild(option);
+            });
+            
+            // Restore giá trị cũ nếu còn trong danh sách
+            if (currentValue && data.some(gv => gv.magv === currentValue)) {
+                select.value = currentValue;
+            }
+            
+            // Cập nhật text
+            select.nextElementSibling.textContent = '';
+        });
+
+        updateGiangvienSelects();
+    })
+    .catch(error => console.error('Lỗi tải giảng viên:', error));
+}
+
+// ✅ LỌC GIẢNG VIÊN - Ẩn giảng viên trùng lặp
 function updateGiangvienSelects() {
     const allSelects = document.querySelectorAll('.giangvienSelect');
     const selectedValues = [];
     
-    // Lấy tất cả giá trị đã chọn (trừ empty value)
     allSelects.forEach(select => {
         if (select.value) {
             selectedValues.push(select.value);
         }
     });
     
-    // Ẩn/hiển thị options dựa trên giá trị đã chọn
-    allSelects.forEach((select, selectIndex) => {
+    allSelects.forEach((select) => {
         select.querySelectorAll('option').forEach(option => {
             if (!option.value) {
-                // Luôn hiển thị option trống
                 option.style.display = 'block';
             } else if (selectedValues.includes(option.value)) {
-                // Ẩn option nếu giá trị này đã được chọn ở select khác
                 const isCurrentValue = select.value === option.value;
                 option.style.display = isCurrentValue ? 'block' : 'none';
             } else {
-                // Hiển thị option nếu chưa được chọn
                 option.style.display = 'block';
             }
         });
@@ -207,17 +315,10 @@ document.addEventListener('change', function(e) {
 document.getElementById('themThanhVienBtn').addEventListener('click', function() {
     const itemCount = document.querySelectorAll('.thanhVienItem').length;
     
-    // Chỉ cho thêm nếu chưa đến 4 thành viên
     if (itemCount >= 4) {
         alert('Tối đa 4 thành viên!');
         return;
     }
-    
-    // Lấy tất cả options từ select đầu tiên
-    const firstSelect = document.querySelector('.giangvienSelect');
-    const giangvienOptions = Array.from(firstSelect.options)
-        .map(opt => `<option value="${opt.value}">${opt.textContent}</option>`)
-        .join('');
     
     const newItem = `
         <div class="card mb-2 border-success thanhVienItem">
@@ -228,8 +329,8 @@ document.getElementById('themThanhVienBtn').addEventListener('click', function()
                             Thành Viên 4
                             <span class="badge bg-warning text-dark">Tùy chọn</span>
                         </label>
-                        <select name="thanh_vien[]" class="form-select giangvienSelect">
-                            ${giangvienOptions}
+                        <select name="thanh_vien[]" class="form-select giangvienSelect" data-index="3">
+                            <option value="">-- Chọn giảng viên --</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -256,27 +357,38 @@ document.getElementById('themThanhVienBtn').addEventListener('click', function()
     const newElement = wrapper.firstElementChild;
     document.getElementById('thanhVienThu4Container').appendChild(newElement);
     
+    // Populate options từ danh sách hiện tại
+    if (currentDate) {
+        fetch('{{ route("admin.hoidong.api.get-giangvien") }}?ngay=' + currentDate)
+            .then(response => response.json())
+            .then(data => {
+                const select = newElement.querySelector('.giangvienSelect');
+                data.forEach(gv => {
+                    const option = document.createElement('option');
+                    option.value = gv.magv;
+                    option.textContent = gv.hoten;
+                    select.appendChild(option);
+                });
+                updateGiangvienSelects();
+            });
+    }
+    
     // Gắn event cho nút xóa
     newElement.querySelector('.xoaThanhVienBtn').addEventListener('click', function() {
         newElement.remove();
-        // Hiển thị lại nút "Thêm"
         document.getElementById('themThanhVienBtn').style.display = 'inline-block';
         updateGiangvienSelects();
     });
     
-    // Ẩn nút "Thêm" sau khi thêm thành viên 4
     this.style.display = 'none';
-    
-    // Cập nhật lọc
-    updateGiangvienSelects();
 });
 
-// Ẩn nút "Thêm" nếu đã có 4 thành viên lúc load trang
+// Load danh sách giảng viên lúc khởi tạo
 window.addEventListener('load', function() {
-    if (document.querySelectorAll('.thanhVienItem').length >= 4) {
-        document.getElementById('themThanhVienBtn').style.display = 'none';
+    const ngayInput = document.getElementById('ngay_hoidong');
+    if (ngayInput.value) {
+        loadGiangVienList(ngayInput.value);
     }
-    updateGiangvienSelects();
 });
 </script>
 

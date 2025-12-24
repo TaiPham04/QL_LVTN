@@ -47,11 +47,37 @@
                                 Đề Tài Chưa Phân Công ({{ $deTaiKhaDung->count() }})
                             </h5>
                         </div>
+
+                        {{-- ✅ THÊM: Ô tìm kiếm --}}
+                        @if(!$deTaiKhaDung->isEmpty())
+                        <div class="card-header bg-light">
+                            <form method="GET" action="{{ route('admin.hoidong.phancong.form', $hoiDong->id) }}" class="d-flex gap-2">
+                                <div class="flex-grow-1">
+                                    <input type="text" 
+                                           name="search" 
+                                           class="form-control" 
+                                           placeholder="Tìm kiếm theo tên nhóm, tên đề tài, hoặc tên GV..."
+                                           value="{{ $search ?? '' }}">
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fa fa-search me-1"></i> Tìm
+                                </button>
+                                <a href="{{ route('admin.hoidong.phancong.form', $hoiDong->id) }}" class="btn btn-secondary">
+                                    <i class="fa fa-refresh me-1"></i> Làm Mới
+                                </a>
+                            </form>
+                        </div>
+                        @endif
+
                         <div class="card-body" style="max-height: 600px; overflow-y: auto;">
                             @if($deTaiKhaDung->isEmpty())
                                 <div class="alert alert-info">
                                     <i class="fa fa-info-circle me-2"></i>
-                                    Không còn đề tài nào khả dụng để phân công.
+                                    @if($search ?? false)
+                                        Không tìm thấy đề tài nào phù hợp với "<strong>{{ $search }}</strong>"
+                                    @else
+                                        Không còn đề tài nào khả dụng để phân công.
+                                    @endif
                                 </div>
                             @else
                                 <form action="{{ route('admin.hoidong.phancong.store', $hoiDong->id) }}" method="POST">
@@ -62,15 +88,16 @@
                                         <strong>Lưu ý:</strong> Chỉ hiển thị đề tài mà GV hướng dẫn KHÔNG thuộc hội đồng này.
                                     </div>
 
-                                    @foreach($deTaiKhaDung as $dt)
-                                    <div class="card mb-2 border-warning">
+                                    @foreach($deTaiKhaDung as $index => $dt)
+                                    <div class="card mb-3 border-warning">
                                         <div class="card-body p-3">
-                                            <div class="form-check">
-                                                <input class="form-check-input" 
+                                            <div class="form-check mb-3">
+                                                <input class="form-check-input detaiCheckbox" 
                                                        type="checkbox" 
                                                        name="nhom_id[]" 
                                                        value="{{ $dt->nhom_id }}" 
-                                                       id="nhom_{{ $dt->nhom_id }}">
+                                                       id="nhom_{{ $dt->nhom_id }}"
+                                                       data-index="{{ $index }}">
                                                 <label class="form-check-label w-100" for="nhom_{{ $dt->nhom_id }}">
                                                     <strong class="text-primary">{{ $dt->nhom }}</strong> - {{ $dt->tendt }}
                                                     <br>
@@ -86,6 +113,24 @@
                                                     </small>
                                                 </label>
                                             </div>
+
+                                            {{-- ✅ INPUT THỨ TỰ BÁO CÁO --}}
+                                            <div class="input-group">
+                                                <span class="input-group-text">
+                                                    <i class="fa fa-sort-numeric-down me-2"></i>Thứ tự báo cáo
+                                                </span>
+                                                <input type="number" 
+                                                       class="form-control thuTuInput" 
+                                                       name="thu_tu[]" 
+                                                       value=""
+                                                       min="1"
+                                                       placeholder="VD: 1, 2, 3..."
+                                                       data-nhom-id="{{ $dt->nhom_id }}"
+                                                       disabled>
+                                            </div>
+                                            <small class="text-muted d-block mt-2">
+                                                ✓ Chọn checkbox để bật input nhập thứ tự
+                                            </small>
                                         </div>
                                     </div>
                                     @endforeach
@@ -121,9 +166,17 @@
                                 <div class="card mb-2 border-success">
                                     <div class="card-header bg-success bg-opacity-10 py-2">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <strong class="text-success">
-                                                {{ $index + 1 }}. {{ $dt->nhom }}
-                                            </strong>
+                                            <div>
+                                                {{-- ✅ HIỂN THỊ THỨ TỰ BÁO CÁO --}}
+                                                @if($dt->thu_tu)
+                                                    <span class="badge bg-info me-2">
+                                                        <i class="fa fa-sort-numeric-down me-1"></i>Thứ tự {{ $dt->thu_tu }}
+                                                    </span>
+                                                @endif
+                                                <strong class="text-success">
+                                                    {{ $dt->nhom }}
+                                                </strong>
+                                            </div>
                                             <form action="{{ route('admin.hoidong.phancong.delete', [$hoiDong->id, $dt->nhom_id]) }}" 
                                                   method="POST" 
                                                   onsubmit="return confirm('Xác nhận xóa đề tài này?')">
@@ -144,7 +197,7 @@
                                         <p class="mb-0 small">
                                             <strong>Sinh viên:</strong><br>
                                             @foreach($sinhVienDaPhanCong[$dt->nhom_id] as $sv)
-                                                <span class="badge bg-secondary me-1">{{ $sv->hoten }}</span>
+                                                <span class="badge bg-secondary me-1">{{ $sv->hoten }} ({{ $sv->mssv }})</span>
                                             @endforeach
                                         </p>
                                     </div>
@@ -168,4 +221,70 @@
         </div>
     </div>
 </div>
+
+<script>
+// ✅ Bật/Tắt input thứ tự khi checkbox được chọn
+document.querySelectorAll('.detaiCheckbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const thuTuInput = this.closest('.card-body').querySelector('.thuTuInput');
+        
+        if (this.checked) {
+            thuTuInput.disabled = false;
+            thuTuInput.focus();
+        } else {
+            thuTuInput.disabled = true;
+            thuTuInput.value = '';
+        }
+    });
+});
+
+// ✅ Validate form trước khi submit
+document.querySelectorAll('form').forEach(form => {
+    if (form.action.includes('phancong.store')) {
+        form.addEventListener('submit', function(e) {
+            const checkedBoxes = document.querySelectorAll('.detaiCheckbox:checked');
+            
+            let isValid = true;
+            checkedBoxes.forEach(checkbox => {
+                const thuTuInput = checkbox.closest('.card-body').querySelector('.thuTuInput');
+                if (!thuTuInput.value || thuTuInput.value < 1) {
+                    isValid = false;
+                    thuTuInput.classList.add('is-invalid');
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                alert('Vui lòng nhập thứ tự báo cáo cho tất cả đề tài được chọn!');
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.thuTuInput:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
+.thuTuInput {
+    border-radius: 8px;
+}
+
+.card {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.badge {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+}
+</style>
+
 @endsection

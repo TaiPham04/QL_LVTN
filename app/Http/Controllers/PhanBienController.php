@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\DB;
 class PhanBienController extends Controller
 {
     // 📌 Hiển thị trang phân công phản biện
-    public function index()
+    public function index(Request $request)
     {
         // Lấy danh sách đề tài theo NHÓM từ bảng detai
-        $topics = DB::table('detai as dt')
+        $query = DB::table('detai as dt')
             ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
             ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
             ->leftJoin('giangvien as gv_hd', 'dt.magv', '=', 'gv_hd.magv')
@@ -28,8 +28,20 @@ class PhanBienController extends Controller
                 'pb.magv_phanbien',
                 'gv_pb.hoten as tengv_phanbien'
             )
-            ->whereNotNull('dt.nhom_id')
-            ->orderBy('n.tennhom')
+            ->whereNotNull('dt.nhom_id');
+
+        // Tìm kiếm theo 1 ô - tìm trong nhóm, mssv, đề tài, gvhd
+        if ($request->filled('search')) {
+            $searchTerm = '%' . $request->search . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('n.tennhom', 'LIKE', $searchTerm)
+                  ->orWhere('sv.mssv', 'LIKE', $searchTerm)
+                  ->orWhere('n.tendt', 'LIKE', $searchTerm)
+                  ->orWhere('gv_hd.hoten', 'LIKE', $searchTerm);
+            });
+        }
+
+        $topics = $query->orderBy('n.tennhom')
             ->orderBy('sv.hoten')
             ->get();
 
@@ -64,13 +76,14 @@ class PhanBienController extends Controller
     // 📌 Lưu phân công phản biện
     public function store(Request $request)
     {
-        $request->validate([
-            'selected_topics' => 'required|array|min:1',
-            'magv_phanbien' => 'required',
-        ], [
-            'selected_topics.required' => 'Vui lòng chọn ít nhất 1 nhóm',
-            'magv_phanbien.required' => 'Vui lòng chọn giảng viên phản biện',
-        ]);
+        // ✅ Kiểm tra chỉ khi form phân công được submit (có selected_topics)
+        if (!$request->filled('selected_topics')) {
+            return redirect()->back()->withErrors(['selected_topics' => 'Vui lòng chọn ít nhất 1 nhóm']);
+        }
+
+        if (!$request->filled('magv_phanbien')) {
+            return redirect()->back()->withErrors(['magv_phanbien' => 'Vui lòng chọn giảng viên phản biện']);
+        }
 
         $errors = [];
         $success_count = 0;
@@ -120,6 +133,7 @@ class PhanBienController extends Controller
                 ->with('warning', "Phân công thành công {$success_count} nhóm. Có " . count($errors) . " lỗi.");
         }
 
-        return redirect()->back()->with('success', "Phân công thành công cho {$success_count} nhóm!");
+        return redirect()->back();//->with('success', "Phân công thành công cho {$success_count} nhóm!");
     }
 }
+?>

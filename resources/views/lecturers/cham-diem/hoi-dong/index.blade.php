@@ -78,31 +78,40 @@
                                                 <i class="fa fa-pen"></i>
                                             </a>
 
-                                            {{-- Nút Xuất Excel (Chỉ Chủ Tịch & Thư Ký + Đã chấm hết) --}}
+                                            {{-- Nút Xuất Excel (Chỉ Chủ Tịch & Thư Ký) --}}
                                             @if(in_array($hd->vai_tro, ['chu_tich', 'thu_ky']))
                                                 @php
                                                     // Kiểm tra đề tài đã chấm hết chưa
                                                     $soThanhVien = DB::table('thanhvienhoidong')
-                                                        ->where('mahd', $hd->mahd)
+                                                        ->where('hoidong_id', $hd->hoidong_id)
                                                         ->count();
                                                     
-                                                    $uncheckedCount = DB::table('hoidong_detai as hdt')
+                                                    $deTaiList = DB::table('hoidong_detai as hdt')
                                                         ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
-                                                        ->join('detai as dt', 'hdt.nhom_id', '=', 'dt.nhom_id')
-                                                        ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
                                                         ->where('hdt.hoidong_id', $hd->hoidong_id)
-                                                        ->get()
-                                                        ->filter(function($sv) use ($hd, $soThanhVien) {
-                                                            $diemCount = DB::table('hoidong_chamdiem')
-                                                                ->where('mahd', $hd->mahd)
-                                                                ->where('nhom_id', $sv->nhom_id)
-                                                                ->where('mssv', $sv->mssv)
-                                                                ->count();
-                                                            return $diemCount < $soThanhVien;
-                                                        })
-                                                        ->count();
+                                                        ->select('n.id as nhom_id')
+                                                        ->distinct()
+                                                        ->get();
 
-                                                    $canExport = $uncheckedCount === 0;
+                                                    $uncheckedCount = 0;
+                                                    foreach ($deTaiList as $deTai) {
+                                                        $sinhVienList = DB::table('detai')
+                                                            ->where('nhom_id', $deTai->nhom_id)
+                                                            ->distinct('mssv')
+                                                            ->count();
+
+                                                        $diemCount = DB::table('hoidong_chamdiem')
+                                                            ->where('hoidong_id', $hd->hoidong_id)
+                                                            ->where('nhom_id', $deTai->nhom_id)
+                                                            ->distinct('mssv')
+                                                            ->count();
+
+                                                        if ($diemCount < $sinhVienList) {
+                                                            $uncheckedCount++;
+                                                        }
+                                                    }
+
+                                                    $canExport = $uncheckedCount === 0 && !$deTaiList->isEmpty();
                                                 @endphp
 
                                                 @if($canExport)
@@ -112,8 +121,8 @@
                                                         <i class="fa fa-file-excel"></i>
                                                     </a>
                                                 @else
-                                                    <button class="btn btn-secondary btn-sm" disabled 
-                                                            title="Chưa chấm hết đề tài">
+                                                    <button class="btn btn-warning btn-sm" disabled 
+                                                            title="Chưa chấm hết đề tài ({{ $uncheckedCount }}/{{ $deTaiList->count() }})">
                                                         <i class="fa fa-file-excel"></i>
                                                     </button>
                                                 @endif
@@ -168,6 +177,16 @@
     .alert {
         border-radius: 8px;
         border: none;
+    }
+
+    /* Làm sáng icon khi disabled */
+    .btn:disabled {
+        opacity: 0.7;
+    }
+
+    .btn-warning:disabled {
+        background-color: #ffc107 !important;
+        color: #000 !important;
     }
 </style>
 

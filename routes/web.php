@@ -8,7 +8,8 @@ use App\Http\Controllers\{
     StudentController,
     PhanBienController,
     AdminAssignmentController,
-    LecturerAssignmentsController
+    LecturerAssignmentsController,
+    DiemTongKetController
 };
 
 /*
@@ -73,8 +74,18 @@ Route::middleware(['auth', 'admin'])
             Route::post('/{id}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongStore'])->name('phancong.store');
             Route::delete('/{id}/phan-cong/{nhom_id}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
             Route::get('/{id}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
+
+            Route::get('/api/get-giangvien', [App\Http\Controllers\HoiDongController::class, 'apiGetGiangVien'])->name('api.get-giangvien');
+            Route::post('/api/save-date', [App\Http\Controllers\HoiDongController::class, 'apiSaveDate'])->name('api.save-date');
+        });
+
+        Route::prefix('diem')->group(function () {
+            Route::get('/', [DiemTongKetController::class, 'index'])->name('diem.index');
+            Route::get('/export', [DiemTongKetController::class, 'exportExcel'])->name('diem.export');
         });
     });
+
+    
 
 
 
@@ -150,11 +161,11 @@ Route::middleware(['auth', 'lecturers'])
             Route::post('/update/{magv}', 'update')->name('update');
         });
 
-        // Route Điểm Tổng Kết
         Route::prefix('tong-ket')->name('tong-ket.')->controller(\App\Http\Controllers\TongKetController::class)->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::get('/{mahd}/export-excel', 'exportExcel')->name('export-excel');
+            Route::get('/export-excel', 'exportExcel')->name('export-excel');
         });
+        
     });
 
 

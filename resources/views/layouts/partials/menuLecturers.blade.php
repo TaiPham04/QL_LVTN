@@ -52,7 +52,7 @@
             </a>
 
             <a href="{{ route('lecturers.cham-diem.hoi-dong.index') }}" 
-               class="{{ request()->routeIs('lecturer.cham-diem.*') ? 'active' : '' }}">
+               class="{{ request()->routeIs('lecturers.cham-diem.hoi-dong.*') ? 'active' : '' }}">
                 <i class="fa fa-star me-2"></i> Hội Đồng
             </a>
             <a href="{{ route('lecturers.tong-ket.index') }}" 

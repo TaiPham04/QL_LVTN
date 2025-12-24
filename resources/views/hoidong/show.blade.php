@@ -28,6 +28,17 @@
                         <div class="col-md-6">
                             <p><strong>Mã hội đồng:</strong> <span class="badge bg-primary">{{ $hoiDong->mahd }}</span></p>
                             <p><strong>Tên hội đồng:</strong> {{ $hoiDong->tenhd }}</p>
+                            <p>
+                                <strong>Ngày hội đồng:</strong> 
+                                @if($hoiDong->ngay_hoidong)
+                                    <span class="badge bg-warning text-dark" style="font-size: 1rem; padding: 0.6rem 1rem;">
+                                        <i class="fa fa-calendar me-2"></i>
+                                        {{ \Carbon\Carbon::parse($hoiDong->ngay_hoidong)->format('d/m/Y') }}
+                                    </span>
+                                @else
+                                    <span class="text-muted">Chưa chọn</span>
+                                @endif
+                            </p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Trạng thái:</strong> 

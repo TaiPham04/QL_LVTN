@@ -12,73 +12,6 @@ use PhpOffice\PhpSpreadsheet\Style\Color;
 class ChamDiemHoiDongExport
 {
     /**
-     * Kiểm tra tất cả đề tài đã chấm điểm đủ chưa
-     */
-    public function checkAllScored($hoidong_id)
-    {
-        // Lấy danh sách đề tài
-        $deTaiList = DB::table('hoidong_detai as hdt')
-            ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
-            ->where('hdt.hoidong_id', $hoidong_id)
-            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt')
-            ->distinct()
-            ->get();
-
-        if ($deTaiList->isEmpty()) {
-            return [
-                'scored' => true,
-                'uncheckedCount' => 0,
-                'message' => 'Không có đề tài'
-            ];
-        }
-
-        // Lấy số thành viên hội đồng
-        $soThanhVien = DB::table('thanhvienhoidong')
-            ->where('hoidong_id', $hoidong_id)
-            ->count();
-
-        if ($soThanhVien === 0) {
-            return [
-                'scored' => true,
-                'uncheckedCount' => 0,
-                'message' => 'Hội đồng không có thành viên'
-            ];
-        }
-
-        $uncheckedCount = 0;
-
-        // Kiểm tra từng đề tài
-        foreach ($deTaiList as $deTai) {
-            $sinhVienNhom = DB::table('detai as dt')
-                ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
-                ->where('dt.nhom_id', $deTai->nhom_id)
-                ->select('sv.mssv')
-                ->get();
-
-            foreach ($sinhVienNhom as $sv) {
-                $diemCount = DB::table('hoidong_chamdiem')
-                    ->where('hoidong_id', $hoidong_id)
-                    ->where('nhom_id', $deTai->nhom_id)
-                    ->where('mssv', $sv->mssv)
-                    ->distinct('magv_danh_gia')
-                    ->count();
-
-                if ($diemCount < $soThanhVien) {
-                    $uncheckedCount++;
-                }
-            }
-        }
-
-        return [
-            'scored' => $uncheckedCount === 0,
-            'uncheckedCount' => $uncheckedCount,
-            'message' => $uncheckedCount > 0 
-                ? "Còn $uncheckedCount đề tài chưa chấm đủ!" 
-                : 'Tất cả đề tài đã chấm'
-        ];
-    }
-
-    /**
      * Xuất file Excel - Lưu vào disk
      */
     public function exportExcel($hoidong_id)
@@ -118,25 +51,25 @@ class ChamDiemHoiDongExport
                 ->get();
 
             foreach ($sinhVienNhom as $sv) {
+                // Lấy điểm từ cấu trúc mới (1 record/sinh viên với 4 cột điểm)
+                $diemRecord = DB::table('hoidong_chamdiem')
+                    ->where('hoidong_id', $hoidong_id)
+                    ->where('nhom_id', $deTai->nhom_id)
+                    ->where('mssv', $sv->mssv)
+                    ->first();
+
                 $row = [
                     'nhom' => $deTai->nhom,
                     'mssv' => $sv->mssv,
                     'hoten' => $sv->hoten,
                     'lop' => $sv->lop,
-                    'tendt' => $deTai->tendt
+                    'tendt' => $deTai->tendt,
+                    'diem_chu_tich' => $diemRecord->diem_chu_tich ?? '',
+                    'diem_thu_ky' => $diemRecord->diem_thu_ky ?? '',
+                    'diem_thanh_vien_1' => $diemRecord->diem_thanh_vien_1 ?? '',
+                    'diem_thanh_vien_2' => $diemRecord->diem_thanh_vien_2 ?? '',
+                    'diem_tong' => $diemRecord->diem_tong ?? '',
                 ];
-
-                // Lấy điểm từng thành viên
-                foreach ($thanhVien as $tv) {
-                    $diem = DB::table('hoidong_chamdiem')
-                        ->where('hoidong_id', $hoidong_id)
-                        ->where('nhom_id', $deTai->nhom_id)
-                        ->where('mssv', $sv->mssv)
-                        ->where('magv_danh_gia', $tv->magv)
-                        ->value('diem') ?? '';
-                    
-                    $row['diem_' . $tv->magv] = $diem;
-                }
 
                 $data[] = $row;
             }
@@ -156,24 +89,20 @@ class ChamDiemHoiDongExport
 
         // Header
         $sheet->setCellValue('A1', 'HỘI ĐỒNG: ' . $tenHoiDong);
-        $sheet->mergeCells('A1:J1');
+        $sheet->mergeCells('A1:M1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('A2', 'Ngày xuất: ' . now()->format('d/m/Y H:i'));
-        $sheet->mergeCells('A2:J2');
+        $sheet->mergeCells('A2:M2');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // Tiêu đề cột
-        $headers = ['Nhóm', 'MSSV', 'Tên SV', 'Lớp', 'Tên Đề Tài'];
-        
-        // Thêm tên thành viên vào header
-        foreach ($thanhVien as $tv) {
-            $headers[] = $tv->hoten;
-        }
-        
-        // Thêm cột điểm tổng
-        $headers[] = 'Điểm TB';
+        $headers = [
+            'Nhóm', 'MSSV', 'Tên SV', 'Lớp', 'Tên Đề Tài',
+            'Điểm Chủ tịch', 'Điểm Thư ký', 'Điểm Thành viên 1', 'Điểm Thành viên 2',
+            'Điểm TB'
+        ];
 
         $col = 'A';
         foreach ($headers as $header) {
@@ -194,28 +123,16 @@ class ChamDiemHoiDongExport
             $sheet->setCellValue('C' . $row, $item['hoten']);
             $sheet->setCellValue('D' . $row, $item['lop']);
             $sheet->setCellValue('E' . $row, $item['tendt']);
+            $sheet->setCellValue('F' . $row, $item['diem_chu_tich']);
+            $sheet->setCellValue('G' . $row, $item['diem_thu_ky']);
+            $sheet->setCellValue('H' . $row, $item['diem_thanh_vien_1']);
+            $sheet->setCellValue('I' . $row, $item['diem_thanh_vien_2']);
+            $sheet->setCellValue('J' . $row, $item['diem_tong']);
 
-            // Điểm từng thành viên
-            $col = 'F';
-            $diemList = [];
-            foreach ($thanhVien as $tv) {
-                $diemValue = $item['diem_' . $tv->magv];
-                $sheet->setCellValue($col . $row, $diemValue);
+            // Căn giữa các cột điểm
+            for ($col = 'F'; $col <= 'J'; $col++) {
                 $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                
-                if ($diemValue !== '') {
-                    $diemList[] = $diemValue;
-                }
-                
-                $col++;
             }
-
-            // Cột Điểm TB
-            if (!empty($diemList)) {
-                $diemTB = round(array_sum($diemList) / count($diemList), 2);
-                $sheet->setCellValue($col . $row, $diemTB);
-            }
-            $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $row++;
         }
@@ -227,10 +144,8 @@ class ChamDiemHoiDongExport
         $sheet->getColumnDimension('D')->setWidth(12);
         $sheet->getColumnDimension('E')->setWidth(30);
         
-        $col = 'F';
-        for ($i = 0; $i < count($thanhVien); $i++) {
-            $sheet->getColumnDimension($col)->setWidth(25);
-            $col++;
+        for ($col = 'F'; $col <= 'J'; $col++) {
+            $sheet->getColumnDimension($col)->setWidth(15);
         }
 
         // Lưu file vào disk

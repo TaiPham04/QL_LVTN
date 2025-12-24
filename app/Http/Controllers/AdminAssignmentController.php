@@ -11,77 +11,109 @@ class AdminAssignmentController extends Controller
      * 🆕 Hiển thị danh sách phân công (CÓ KIỂM TRA ĐỀ TÀI)
      */
     public function index(Request $request)
-    {
-        // 🔍 Lọc theo trạng thái phân công
-        $status = $request->input('status');
-        
-        if ($status === 'assigned') {
-            $query = DB::table('sinhvien')
-                ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
-                ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
-                ->select(
-                    'sinhvien.mssv',
-                    'sinhvien.hoten',
-                    'sinhvien.lop',
-                    'phancong.magv',
-                    'giangvien.hoten as tengiangvien',
-                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
-                );
-        } elseif ($status === 'unassigned') {
-            $query = DB::table('sinhvien')
-                ->whereNotExists(function($subquery) {
-                    $subquery->select(DB::raw(1))
-                        ->from('phancong')
-                        ->whereColumn('phancong.mssv', 'sinhvien.mssv');
-                })
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
-                ->select(
-                    'sinhvien.mssv',
-                    'sinhvien.hoten',
-                    'sinhvien.lop',
-                    DB::raw('NULL as magv'),
-                    DB::raw('NULL as tengiangvien'),
-                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
-                );
-        } else {
-            $query = DB::table('sinhvien')
-                ->leftJoin('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
-                ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
-                ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
-                ->select(
-                    'sinhvien.mssv',
-                    'sinhvien.hoten',
-                    'sinhvien.lop',
-                    'phancong.magv',
-                    'giangvien.hoten as tengiangvien',
-                    DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
-                );
-        }
+{
+    // 🔍 Lọc theo trạng thái phân công
+    $status = $request->input('status');
+    
+    if ($status === 'assigned') {
+        // ✅ INNERjoin phancong (chỉ lấy SV đã phân công)
+        $query = DB::table('sinhvien')
+            ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
+            ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
+            ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+            ->select(
+                'sinhvien.mssv',
+                'sinhvien.hoten',
+                'sinhvien.lop',
+                'phancong.magv',
+                'giangvien.hoten as tengiangvien',
+                DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+            );
+    } elseif ($status === 'unassigned') {
+        // ✅ Chỉ query sinhvien + detai (không join phancong)
+        $query = DB::table('sinhvien')
+            ->whereNotExists(function($subquery) {
+                $subquery->select(DB::raw(1))
+                    ->from('phancong')
+                    ->whereColumn('phancong.mssv', 'sinhvien.mssv');
+            })
+            ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+            ->select(
+                'sinhvien.mssv',
+                'sinhvien.hoten',
+                'sinhvien.lop',
+                DB::raw('NULL as magv'),
+                DB::raw('NULL as tengiangvien'),
+                DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+            );
+    } else {
+        // ✅ FIX: Tách thành 2 query sau đó merge
+        // Query 1: SV có phân công
+        $assignedSVs = DB::table('sinhvien')
+            ->join('phancong', 'sinhvien.mssv', '=', 'phancong.mssv')
+            ->leftJoin('giangvien', 'phancong.magv', '=', 'giangvien.magv')
+            ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+            ->select(
+                'sinhvien.mssv',
+                'sinhvien.hoten',
+                'sinhvien.lop',
+                'phancong.magv',
+                'giangvien.hoten as tengiangvien',
+                DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+            );
 
-        // 🔍 Tìm kiếm
-        if ($request->has('search') && !empty($request->input('search'))) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->where('sinhvien.mssv', 'like', '%' . $search . '%')
-                  ->orWhere('sinhvien.hoten', 'like', '%' . $search . '%');
-            });
-        }
+        // Query 2: SV chưa phân công
+        $unassignedSVs = DB::table('sinhvien')
+            ->whereNotExists(function($subquery) {
+                $subquery->select(DB::raw(1))
+                    ->from('phancong')
+                    ->whereColumn('phancong.mssv', 'sinhvien.mssv');
+            })
+            ->leftJoin('detai', 'sinhvien.mssv', '=', 'detai.mssv')
+            ->select(
+                'sinhvien.mssv',
+                'sinhvien.hoten',
+                'sinhvien.lop',
+                DB::raw('NULL as magv'),
+                DB::raw('NULL as tengiangvien'),
+                DB::raw('IF(detai.madt IS NOT NULL, 1, 0) as co_de_tai')
+            );
 
-        // 🔍 Lọc theo giảng viên (chỉ khi status là 'assigned' hoặc không có status)
-        if ($request->has('magv') && !empty($request->input('magv')) && $status !== 'unassigned') {
-            $query->where('phancong.magv', $request->input('magv'));
-        }
+        // ✅ Union 2 query
+        $query = $assignedSVs->unionAll($unassignedSVs);
+    }
 
-        $assignments = $query->distinct()->orderBy('sinhvien.hoten')->get();
+    // 🔍 Tìm kiếm
+    if ($request->has('search') && !empty($request->input('search'))) {
+        $search = $request->input('search');
+        $query->where(function($q) use ($search) {
+            $q->where('sinhvien.mssv', 'like', '%' . $search . '%')
+              ->orWhere('sinhvien.hoten', 'like', '%' . $search . '%');
+        });
+    }
 
-        $lecturers = DB::table('giangvien')
-            ->select('magv', 'hoten')
+    // 🔍 Lọc theo giảng viên (chỉ khi status là 'assigned' hoặc không có status)
+    if ($request->has('magv') && !empty($request->input('magv')) && $status !== 'unassigned') {
+        $query->where('phancong.magv', $request->input('magv'));
+    }
+
+    // ✅ Wrap query vào subquery để avoid DISTINCT + ORDER BY issue
+    if ($status === null) {
+        $assignments = DB::table(DB::raw("({$query->toSql()}) as sub"))
+            ->mergeBindings($query)
             ->orderBy('hoten')
             ->get();
-
-        return view('admin.assignments.index', compact('assignments', 'lecturers'));
+    } else {
+        $assignments = $query->distinct()->orderBy('sinhvien.hoten')->get();
     }
+
+    $lecturers = DB::table('giangvien')
+        ->select('magv', 'hoten')
+        ->orderBy('hoten')
+        ->get();
+
+    return view('admin.assignments.index', compact('assignments', 'lecturers'));
+}
 
     /**
      * Form thêm/sửa phân công (PHÂN CÔNG NHIỀU SINH VIÊN)

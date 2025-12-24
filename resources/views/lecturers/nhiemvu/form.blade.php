@@ -193,8 +193,9 @@
                                 <label class="form-label fw-bold">
                                     1. Người hướng dẫn <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" name="nguoi_huongdan_1" class="form-control" 
-                                       value="{{ old('nguoi_huongdan_1', $nhiemvu->nguoi_huongdan_1 ?? $lecturer->hoten) }}" required>
+                                <input type="text" name="magv_huongdan_1" class="form-control" 
+                                       value="{{ old('magv_huongdan_1', isset($lecturer) ? preg_replace_callback('/(\b\w)/u', fn($m) => mb_strtoupper($m[1]), mb_strtolower($lecturer->hoten)) : '') }}" 
+                                       placeholder="Nhập tên giảng viên" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">
@@ -208,9 +209,9 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">2. Người hướng dẫn (nếu có)</label>
-                                <input type="text" name="nguoi_huongdan_2" class="form-control" 
-                                       value="{{ old('nguoi_huongdan_2', $nhiemvu->nguoi_huongdan_2 ?? '') }}"
-                                       placeholder="Để trống nếu không có người hướng dẫn thứ 2">
+                                <input type="text" name="magv_huongdan_2" class="form-control" 
+                                       value="{{ old('magv_huongdan_2', $nhiemvu->magv_huongdan_2 ?? '') }}"
+                                       placeholder="Nhập tên giảng viên (nếu có)">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Phần hướng dẫn</label>
@@ -256,7 +257,7 @@
     padding: 10px 14px;
 }
 
-.form-control:focus {
+.form-control:focus, .form-select:focus {
     border-color: #0d6efd;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }

@@ -61,6 +61,10 @@
         </a>
     </div>
 
+    <a href="{{ route('admin.diem.index') }}" class="{{ request()->routeIs('admin.diem.*') ? 'active' : '' }}">
+        <i class="fa fa-chart-bar me-2"></i> Bảng Điểm
+    </a>
+
     <!-- Đăng xuất -->
     <a href="#" onclick="globalLogout(event); return false;" 
        class="d-block py-1 text-decoration-none text-danger">

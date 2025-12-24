@@ -26,7 +26,7 @@ class HoiDongExcelExporter
             throw new \Exception('Hội đồng không tồn tại!');
         }
 
-        // Lấy danh sách đề tài và sinh viên trong hội đồng
+        // ✅ Lấy danh sách đề tài và sinh viên trong hội đồng - THÊM thu_tu
         $danhSach = DB::table('hoidong_detai as hd')
             ->join('nhom as n', 'hd.nhom_id', '=', 'n.id')
             ->join('detai as d', 'hd.nhom_id', '=', 'd.nhom_id')
@@ -34,6 +34,7 @@ class HoiDongExcelExporter
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
             ->where('hd.hoidong_id', $hoidong_id)
             ->select(
+                'hd.thu_tu',
                 'n.tennhom as nhom',
                 'n.tendt',
                 's.mssv',
@@ -42,6 +43,7 @@ class HoiDongExcelExporter
                 'd.magv',
                 'g.hoten as ten_gv'
             )
+            ->orderBy('hd.thu_tu')
             ->orderBy('n.tennhom')
             ->orderBy('s.mssv')
             ->get();
@@ -50,13 +52,13 @@ class HoiDongExcelExporter
             throw new \Exception('Không có đề tài nào trong hội đồng này!');
         }
 
-        return $this->generateExcel($danhSach, $hoiDong->mahd, $hoiDong->tenhd);
+        return $this->generateExcel($danhSach, $hoiDong->mahd, $hoiDong->tenhd, $hoiDong->ngay_hoidong);
     }
 
     /**
      * Tạo file Excel và lưu vào disk
      */
-    private function generateExcel($danhSach, $mahd, $tenHoiDong)
+    private function generateExcel($danhSach, $mahd, $tenHoiDong, $ngayHoiDong)
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -64,20 +66,22 @@ class HoiDongExcelExporter
 
         // Header
         $sheet->setCellValue('A1', 'DANH SÁCH ĐỀ TÀI HỘI ĐỒNG');
-        $sheet->mergeCells('A1:G1');
+        $sheet->mergeCells('A1:H1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('A2', 'Hội Đồng: ' . $tenHoiDong . ' (' . $mahd . ')');
-        $sheet->mergeCells('A2:G2');
+        $sheet->mergeCells('A2:H2');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setCellValue('A3', 'Ngày xuất: ' . now()->format('d/m/Y H:i'));
-        $sheet->mergeCells('A3:G3');
+        // ✅ Hiển thị ngày hội đồng thay vì ngày xuất
+        $ngayDinhDang = $ngayHoiDong ? \Carbon\Carbon::parse($ngayHoiDong)->format('d/m/Y') : 'Chưa chọn';
+        $sheet->setCellValue('A3', 'Ngày hội đồng: ' . $ngayDinhDang);
+        $sheet->mergeCells('A3:H3');
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // Tiêu đề cột
-        $headers = ['Nhóm', 'Tên Đề Tài', 'MSSV', 'Tên SV', 'Lớp', 'GVHD', 'Email GV'];
+        // ✅ Tiêu đề cột - THÊM cột "Thứ Tự"
+        $headers = ['Thứ Tự', 'Nhóm', 'Tên Đề Tài', 'MSSV', 'Tên SV', 'Lớp', 'GVHD', 'Email GV'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . '5', $header);
@@ -89,15 +93,16 @@ class HoiDongExcelExporter
             $col++;
         }
 
-        // Dữ liệu
+        // ✅ Dữ liệu - THÊM giá trị thứ tự
         $row = 6;
         foreach ($danhSach as $item) {
-            $sheet->setCellValue('A' . $row, $item->nhom);
-            $sheet->setCellValue('B' . $row, $item->tendt);
-            $sheet->setCellValue('C' . $row, $item->mssv);
-            $sheet->setCellValue('D' . $row, $item->ten_sv);
-            $sheet->setCellValue('E' . $row, $item->lop);
-            $sheet->setCellValue('F' . $row, $item->ten_gv ?? 'N/A');
+            $sheet->setCellValue('A' . $row, $item->thu_tu ?? '-');
+            $sheet->setCellValue('B' . $row, $item->nhom);
+            $sheet->setCellValue('C' . $row, $item->tendt);
+            $sheet->setCellValue('D' . $row, $item->mssv);
+            $sheet->setCellValue('E' . $row, $item->ten_sv);
+            $sheet->setCellValue('F' . $row, $item->lop);
+            $sheet->setCellValue('G' . $row, $item->ten_gv ?? 'N/A');
             
             // Lấy email từ magv
             $email = '';
@@ -106,19 +111,20 @@ class HoiDongExcelExporter
                     ->where('magv', $item->magv)
                     ->value('email') ?? '';
             }
-            $sheet->setCellValue('G' . $row, $email);
+            $sheet->setCellValue('H' . $row, $email);
 
             $row++;
         }
 
-        // Độ rộng cột
-        $sheet->getColumnDimension('A')->setWidth(12);
-        $sheet->getColumnDimension('B')->setWidth(30);
-        $sheet->getColumnDimension('C')->setWidth(12);
-        $sheet->getColumnDimension('D')->setWidth(20);
-        $sheet->getColumnDimension('E')->setWidth(10);
-        $sheet->getColumnDimension('F')->setWidth(20);
-        $sheet->getColumnDimension('G')->setWidth(25);
+        // ✅ Độ rộng cột - CẬP NHẬT cho 8 cột
+        $sheet->getColumnDimension('A')->setWidth(10);
+        $sheet->getColumnDimension('B')->setWidth(12);
+        $sheet->getColumnDimension('C')->setWidth(30);
+        $sheet->getColumnDimension('D')->setWidth(12);
+        $sheet->getColumnDimension('E')->setWidth(20);
+        $sheet->getColumnDimension('F')->setWidth(10);
+        $sheet->getColumnDimension('G')->setWidth(20);
+        $sheet->getColumnDimension('H')->setWidth(25);
 
         // Lưu file vào temp storage
         $filename = 'DanhSachHoiDong_' . $mahd . '_' . time() . '.xlsx';

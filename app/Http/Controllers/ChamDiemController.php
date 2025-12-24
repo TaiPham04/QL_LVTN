@@ -20,12 +20,17 @@ class ChamDiemController extends Controller
     {
         $magv = session('user')->magv;
 
-        // Lấy danh sách nhóm từ bảng nhom mà giảng viên đang hướng dẫn
+        // ✅ FIX: Lấy danh sách nhóm từ bảng detai (không leftJoin detai)
         $danhSachNhom = DB::table('detai as dt')
             ->join('nhom as n', 'dt.nhom_id', '=', 'n.id')
             ->where('dt.magv', $magv)
             ->whereNotNull('dt.nhom_id')
-            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', DB::raw('COUNT(*) as so_luong_sv'))
+            ->select(
+                'n.id as nhom_id',
+                'n.tennhom as nhom',
+                'n.tendt',
+                DB::raw('COUNT(DISTINCT dt.mssv) as so_luong_sv')
+            )
             ->groupBy('n.id', 'n.tennhom', 'n.tendt')
             ->get();
 
@@ -258,22 +263,28 @@ class ChamDiemController extends Controller
     {
         $magv = session('user')->magv;
 
-        // Lấy danh sách nhóm từ bảng phancong_phanBien
-        $danhSachNhom = DB::table('phancong_phanBien as pb')
+        // ✅ FIX: Thêm WHERE condition để giới hạn dữ liệu
+        // Bỏ leftJoin detai, chỉ join với phancong_phanbien (table nhỏ)
+        $danhSachNhom = DB::table('phancong_phanbien as pb')
             ->where('pb.magv_phanbien', $magv)
             ->join('nhom as n', 'pb.nhom_id', '=', 'n.id')
-            ->leftJoin('detai as dt', 'n.id', '=', 'dt.nhom_id')
             ->select(
                 'n.id as nhom_id', 
                 'n.tennhom as nhom', 
-                'n.tendt', 
-                DB::raw('COUNT(DISTINCT dt.mssv) as so_luong_sv')
+                'n.tendt'
             )
-            ->groupBy('n.id', 'n.tennhom', 'n.tendt')
+            ->distinct()
             ->get();
 
-        // Kiểm tra đã chấm chưa
+        // ✅ Đếm sinh viên riêng (không leftJoin)
         foreach ($danhSachNhom as $nhom) {
+            $so_luong_sv = DB::table('detai')
+                ->where('nhom_id', $nhom->nhom_id)
+                ->count();
+            
+            $nhom->so_luong_sv = $so_luong_sv;
+
+            // Kiểm tra đã chấm chưa
             $phieuCham = PhieuChamDiem::where('nhom_id', $nhom->nhom_id)
                 ->where('magv', $magv)
                 ->where('loai_phieu', 'phan_bien')
@@ -294,7 +305,7 @@ class ChamDiemController extends Controller
         $magv = session('user')->magv;
 
         // Kiểm tra quyền - sửa tên cột thành magv_phanbien
-        $kiemTra = DB::table('phancong_phanBien')
+        $kiemTra = DB::table('phancong_phanbien')
             ->where('nhom_id', $nhom_id)
             ->where('magv_phanbien', $magv)
             ->exists();

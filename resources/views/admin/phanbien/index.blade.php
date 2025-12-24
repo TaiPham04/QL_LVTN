@@ -27,6 +27,36 @@
         </div>
     @endif
 
+    {{-- Form tìm kiếm --}}
+    <div class="card shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-info text-white">
+            <i class="bi bi-search me-2"></i>Tìm kiếm
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ route('admin.phanbien.index') }}" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control" placeholder="Tìm theo: nhóm, MSSV, đề tài, giảng viên..." 
+                           value="{{ request('search') }}">
+                </div>
+                <div class="col-md-6">
+                    <button type="submit" formnovalidate class="btn btn-info w-100">
+                        <i class="bi bi-search me-2"></i>Tìm kiếm
+                    </button>
+                </div>
+                @if(request('search'))
+                    <div class="col-12">
+                        <a href="{{ route('admin.phanbien.index') }}" class="btn btn-sm btn-secondary">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Xóa tìm kiếm
+                        </a>
+                        <span class="badge bg-success">
+                            Kết quả: {{ count($groupedTopics) }} nhóm
+                        </span>
+                    </div>
+                @endif
+            </form>
+        </div>
+    </div>
+
     <form id="phancong-form" action="{{ route('admin.phanbien.store') }}" method="POST">
         @csrf
 
@@ -167,20 +197,61 @@
     </form>
 </div>
 
-{{-- Script --}}
 <script>
+// ✅ Lưu và khôi phục state khi tìm kiếm
+
+// Khôi phục giảng viên phản biện từ sessionStorage
+window.addEventListener('load', function() {
+    const savedGV = sessionStorage.getItem('selected_gv');
+    if (savedGV) {
+        document.getElementById('magv_phanbien').value = savedGV;
+    }
+    
+    // Khôi phục checkbox đã chọn (chỉ những checkbox tồn tại trong DOM hiện tại)
+    const savedCheckboxes = JSON.parse(sessionStorage.getItem('selected_topics') || '[]');
+    const currentCheckboxes = Array.from(document.querySelectorAll('.topic-checkbox')).map(chk => chk.value);
+    
+    savedCheckboxes.forEach(nhomId => {
+        // Chỉ restore nếu checkbox này tồn tại trong page hiện tại
+        if (currentCheckboxes.includes(nhomId)) {
+            const checkbox = document.querySelector(`input[value="${nhomId}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+            }
+        }
+    });
+    
+    updateSelectedCount();
+});
+
+// Lưu giảng viên khi thay đổi
+document.getElementById('magv_phanbien').addEventListener('change', function() {
+    sessionStorage.setItem('selected_gv', this.value);
+});
+
+// Lưu checkbox khi thay đổi
+document.querySelectorAll('.topic-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const selectedIds = Array.from(document.querySelectorAll('.topic-checkbox:checked'))
+            .map(chk => chk.value);
+        sessionStorage.setItem('selected_topics', JSON.stringify(selectedIds));
+        updateSelectedCount();
+    });
+});
+
 // Chọn tất cả checkbox
 document.getElementById('checkAll').addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.topic-checkbox');
     checkboxes.forEach(chk => chk.checked = this.checked);
+    
+    // Lưu tất cả checkbox đã chọn
+    const selectedIds = Array.from(document.querySelectorAll('.topic-checkbox:checked'))
+        .map(chk => chk.value);
+    sessionStorage.setItem('selected_topics', JSON.stringify(selectedIds));
     updateSelectedCount();
 });
 
 // Cập nhật số lượng đã chọn
-document.querySelectorAll('.topic-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', updateSelectedCount);
-});
-
 function updateSelectedCount() {
     const count = document.querySelectorAll('.topic-checkbox:checked').length;
     document.getElementById('selectedCount').textContent = count;
@@ -191,11 +262,13 @@ function clearSelection() {
     document.querySelectorAll('.topic-checkbox').forEach(chk => chk.checked = false);
     document.getElementById('checkAll').checked = false;
     document.getElementById('magv_phanbien').value = '';
+    sessionStorage.removeItem('selected_gv');
+    sessionStorage.removeItem('selected_topics');
     updateSelectedCount();
 }
 
-// Kiểm tra trước khi submit
-document.querySelector('form').addEventListener('submit', function(e) {
+// Kiểm tra trước khi submit - CHỈ cho form phân công (#phancong-form)
+document.getElementById('phancong-form').addEventListener('submit', function(e) {
     const selectedTopics = document.querySelectorAll('.topic-checkbox:checked');
     
     if (selectedTopics.length === 0) {
@@ -226,7 +299,12 @@ document.querySelector('form').addEventListener('submit', function(e) {
         return false;
     }
     
-    return confirm(`Bạn có chắc muốn phân công ${selectedTopics.length} nhóm cho giảng viên này?`);
+    // ✅ Kiểm tra confirm trước khi submit
+    const confirmed = confirm(`Bạn có chắc muốn phân công ${selectedTopics.length} nhóm cho giảng viên này?`);
+    if (!confirmed) {
+        e.preventDefault();
+        return false;
+    }
 });
 
 // Khởi tạo count

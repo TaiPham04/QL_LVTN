@@ -78,25 +78,46 @@
                                             <th width="8%">MSSV</th>
                                             <th width="20%">Tên Sinh Viên</th>
                                             <th width="8%">Lớp</th>
-                                            @foreach($thanhVien as $tv)
-                                                @php
-                                                    $parts = explode(' ', trim($tv->hoten));
-                                                    $abbreviated = count($parts) > 1 
-                                                        ? strtoupper($parts[0][0]) . '. ' . implode(' ', array_slice($parts, 1))
-                                                        : $tv->hoten;
-                                                @endphp
-                                                <th width="8%" class="text-center" title="{{ $tv->hoten }}">
-                                                    <span class="d-block" style="font-size: 0.75rem; line-height: 1.2;">
-                                                        {{ $abbreviated }}
+                                            {{-- Cột Chủ tịch --}}
+                                            @php
+                                                $chuTich = $thanhVien->where('vai_tro', 'chu_tich')->first();
+                                            @endphp
+                                            @if($chuTich)
+                                                <th width="12%" class="text-center" title="{{ $chuTich->hoten }}">
+                                                    <span class="d-block" style="font-size: 0.8rem;">
+                                                        {{ $chuTich->hoten }}
                                                     </span>
-                                                    @if($tv->vai_tro === 'chu_tich')
-                                                        <i class="fa fa-crown text-warning" style="font-size: 0.7rem;"></i>
-                                                    @elseif($tv->vai_tro === 'thu_ky')
-                                                        <i class="fa fa-file-lines text-info" style="font-size: 0.7rem;"></i>
-                                                    @endif
+                                                    <i class="fa fa-crown text-warning"></i> Chủ tịch
+                                                </th>
+                                            @endif
+
+                                            {{-- Cột Thư ký --}}
+                                            @php
+                                                $thuKy = $thanhVien->where('vai_tro', 'thu_ky')->first();
+                                            @endphp
+                                            @if($thuKy)
+                                                <th width="12%" class="text-center" title="{{ $thuKy->hoten }}">
+                                                    <span class="d-block" style="font-size: 0.8rem;">
+                                                        {{ $thuKy->hoten }}
+                                                    </span>
+                                                    <i class="fa fa-file-lines text-info"></i> Thư ký
+                                                </th>
+                                            @endif
+
+                                            {{-- Các cột Thành viên --}}
+                                            @php
+                                                $thanhVienList = $thanhVien->where('vai_tro', 'thanh_vien');
+                                            @endphp
+                                            @foreach($thanhVienList as $tv)
+                                                <th width="12%" class="text-center" title="{{ $tv->hoten }}">
+                                                    <span class="d-block" style="font-size: 0.8rem;">
+                                                        {{ $tv->hoten }}
+                                                    </span>
+                                                    👤 Thành viên
                                                 </th>
                                             @endforeach
-                                            <th width="8%" class="text-center">Điểm TB</th>
+
+                                            <th width="10%" class="text-center">Điểm TB</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -109,48 +130,92 @@
                                                 @php
                                                     $diemKey = $deTai->nhom_id . '_' . $sv->mssv;
                                                     $diemSinhVien = $diemHienTai->get($diemKey, []);
-                                                    $tongDiem = 0;
-                                                    $diemCount = 0;
                                                 @endphp
 
-                                                @foreach($thanhVien as $tv)
+                                                {{-- Điểm Chủ tịch --}}
+                                                @if($chuTich)
                                                     <td class="text-center">
-                                                        @php
-                                                            $diem = $diemSinhVien[$tv->magv]['diem'] ?? '';
-                                                            if ($diem) {
-                                                                $tongDiem += floatval($diem);
-                                                                $diemCount++;
-                                                            }
-                                                        @endphp
-                                                        
                                                         @if(in_array($vaiTroGV, ['chu_tich', 'thu_ky']))
                                                             <input type="number" step="0.01" min="0" max="10"
-                                                                   name="diem[{{ $deTai->nhom_id }}_{{ $sv->mssv }}][{{ $tv->magv }}]"
+                                                                   name="diem[{{ $deTai->nhom_id }}_{{ $sv->mssv }}][chu_tich]"
                                                                    class="form-control form-control-sm text-center diem-input"
-                                                                   value="{{ $diem }}"
+                                                                   value="{{ $diemSinhVien['diem_chu_tich'] ?? '' }}"
                                                                    data-nhom="{{ $deTai->nhom_id }}"
                                                                    data-mssv="{{ $sv->mssv }}">
                                                         @else
                                                             <div class="form-control form-control-sm text-center bg-light">
-                                                                {{ $diem ?: '-' }}
+                                                                {{ $diemSinhVien['diem_chu_tich'] ?? '-' }}
+                                                            </div>
+                                                        @endif
+                                                    </td>
+                                                @endif
+
+                                                {{-- Điểm Thư ký --}}
+                                                @if($thuKy)
+                                                    <td class="text-center">
+                                                        @if(in_array($vaiTroGV, ['chu_tich', 'thu_ky']))
+                                                            <input type="number" step="0.01" min="0" max="10"
+                                                                   name="diem[{{ $deTai->nhom_id }}_{{ $sv->mssv }}][thu_ky]"
+                                                                   class="form-control form-control-sm text-center diem-input"
+                                                                   value="{{ $diemSinhVien['diem_thu_ky'] ?? '' }}"
+                                                                   data-nhom="{{ $deTai->nhom_id }}"
+                                                                   data-mssv="{{ $sv->mssv }}">
+                                                        @else
+                                                            <div class="form-control form-control-sm text-center bg-light">
+                                                                {{ $diemSinhVien['diem_thu_ky'] ?? '-' }}
+                                                            </div>
+                                                        @endif
+                                                    </td>
+                                                @endif
+
+                                                {{-- Các cột Thành viên --}}
+                                                @php
+                                                    $thanhVienList = $thanhVien->where('vai_tro', 'thanh_vien')->values();
+                                                @endphp
+                                                @foreach($thanhVienList as $index => $tv)
+                                                    <td class="text-center">
+                                                        @php
+                                                            $inputName = 'thanh_vien_' . ($index + 1);
+                                                            $colName = 'diem_thanh_vien_' . ($index + 1);
+                                                        @endphp
+                                                        @if(in_array($vaiTroGV, ['chu_tich', 'thu_ky']))
+                                                            <input type="number" step="0.01" min="0" max="10"
+                                                                   name="diem[{{ $deTai->nhom_id }}_{{ $sv->mssv }}][{{ $inputName }}]"
+                                                                   class="form-control form-control-sm text-center diem-input"
+                                                                   value="{{ $diemSinhVien[$colName] ?? '' }}"
+                                                                   data-nhom="{{ $deTai->nhom_id }}"
+                                                                   data-mssv="{{ $sv->mssv }}">
+                                                        @else
+                                                            <div class="form-control form-control-sm text-center bg-light">
+                                                                {{ $diemSinhVien[$colName] ?? '-' }}
                                                             </div>
                                                         @endif
                                                     </td>
                                                 @endforeach
 
+                                                {{-- Điểm Trung bình --}}
                                                 <td class="text-center fw-bold">
-                                                    @if($diemCount > 0)
-                                                        <span class="diem-trungbinh" data-nhom="{{ $deTai->nhom_id }}" data-mssv="{{ $sv->mssv }}">
-                                                            {{ round($tongDiem / count($thanhVien), 2) }}
-                                                        </span>
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
+                                                    <span class="diem-trungbinh" data-nhom="{{ $deTai->nhom_id }}" data-mssv="{{ $sv->mssv }}">
+                                                        @php
+                                                            $diemArray = [
+                                                                $diemSinhVien['diem_chu_tich'] ?? null,
+                                                                $diemSinhVien['diem_thu_ky'] ?? null,
+                                                                $diemSinhVien['diem_thanh_vien_1'] ?? null,
+                                                                $diemSinhVien['diem_thanh_vien_2'] ?? null,
+                                                            ];
+                                                            $diemValues = array_filter($diemArray, fn($d) => $d !== null);
+                                                            if (!empty($diemValues)) {
+                                                                echo round(array_sum($diemValues) / count($diemValues), 2);
+                                                            } else {
+                                                                echo '-';
+                                                            }
+                                                        @endphp
+                                                    </span>
                                                 </td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="{{ count($thanhVien) + 4 }}" class="text-center py-3 text-muted">
+                                                <td colspan="20" class="text-center py-3 text-muted">
                                                     Không có sinh viên
                                                 </td>
                                             </tr>
@@ -198,7 +263,8 @@
     .table th {
         font-weight: 600;
         background-color: #f8f9fa;
-        white-space: nowrap;
+        white-space: normal;
+        font-size: 0.85rem;
     }
 
     .table td {
@@ -246,19 +312,6 @@
 </style>
 
 <script>
-    // Helper function: Viết tắt tên giảng viên
-    function abbreviateName(fullName) {
-        const parts = fullName.trim().split(' ');
-        if (parts.length <= 1) {
-            return fullName;
-        }
-        
-        const firstName = parts[0];
-        const lastName = parts.slice(1).join(' ');
-        
-        return firstName.charAt(0).toUpperCase() + '. ' + lastName;
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
         const diemInputs = document.querySelectorAll('.diem-input');
 
@@ -297,7 +350,7 @@
                     const trungBinh = (tongDiem / count).toFixed(2);
                     trungBinhEl.textContent = trungBinh;
                 } else {
-                    trungBinhEl.innerHTML = '<span class="text-muted">-</span>';
+                    trungBinhEl.textContent = '-';
                 }
             }
         }

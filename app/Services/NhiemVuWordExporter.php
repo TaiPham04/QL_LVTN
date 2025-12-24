@@ -48,17 +48,25 @@ class NhiemVuWordExporter
         $templateProcessor->setValue('ho_so_tai_lieu', $nhiemvu->ho_so_tai_lieu ?? '');
         $templateProcessor->setValue('ngay_giao', $this->formatDate($nhiemvu->ngay_giao));
         $templateProcessor->setValue('ngay_hoanthanh', $this->formatDate($nhiemvu->ngay_hoanthanh));
-        $templateProcessor->setValue('nguoi_huongdan_1', $nhiemvu->nguoi_huongdan_1 ?? '');
+        
+        // ✅ FIX: Lấy tên giảng viên từ bảng giangvien theo mã
+        $tenGV1 = $this->getTenGiangVien($nhiemvu->nguoi_huongdan_1);
+        $tenGV2 = $this->getTenGiangVien($nhiemvu->nguoi_huongdan_2);
+        
+        $templateProcessor->setValue('nguoi_huongdan_1', $tenGV1);
         $templateProcessor->setValue('phan_huongdan_1', $nhiemvu->phan_huongdan_1 ?? '');
-        $templateProcessor->setValue('nguoi_huongdan_2', $nhiemvu->nguoi_huongdan_2 ?? '');
+        $templateProcessor->setValue('nguoi_huongdan_2', $tenGV2);
         $templateProcessor->setValue('phan_huongdan_2', $nhiemvu->phan_huongdan_2 ?? '');
         
         // Ngày ký
         $ngay_ky = date('d') . ' tháng ' . date('m') . ' năm ' . date('Y');
         $templateProcessor->setValue('ngay_ky', $ngay_ky);
 
+        $mssv1 = $nhiemvu->sv1_mssv ?? '';
+        $mssv2 = $nhiemvu->sv2_mssv ?? '';
+
         // Tạo tên file
-        $fileName = "NhiemVu_{$nhom}_" . date('YmdHis') . '.docx';
+        $fileName = "NhiemVu_{$nhom}_{$mssv1}_{$mssv2}" . '.docx';
         $filePath = storage_path('app/public/exports/' . $fileName);
 
         // Tạo thư mục nếu chưa có
@@ -72,6 +80,22 @@ class NhiemVuWordExporter
         return $filePath;
     }
 
+    /**
+     * ✅ Lấy tên giảng viên từ mã giảng viên
+     */
+    private function getTenGiangVien($magv)
+    {
+        if (!$magv) {
+            return '';
+        }
+
+        $tenGV = DB::table('giangvien')
+            ->where('magv', $magv)
+            ->value('hoten');
+
+        return $tenGV ?? $magv;
+    }
+
     private function formatDate($date)
     {
         if (!$date) return '';
@@ -83,3 +107,4 @@ class NhiemVuWordExporter
         }
     }
 }
+?>

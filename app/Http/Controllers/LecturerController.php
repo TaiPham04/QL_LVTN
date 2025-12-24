@@ -37,7 +37,7 @@ class LecturerController extends Controller
             'email' => $request->email,
         ]);
 
-        return redirect()->route('lecturers.index')->with('success', 'Thêm giảng viên thành công!');
+       return redirect()->route('admin.lecturers.index')->with('success', 'Thêm giảng viên thành công!');
     }
 
     public function import(Request $request)

@@ -24,41 +24,91 @@ class TongKetController extends Controller
         }
 
         $magv = $user->magv;
-        \Log::info('=== TongKet Index ===');
+        \Log::info('=== TongKet Index (GV Hướng Dẫn) ===');
         \Log::info('magv: ' . $magv);
 
-        // Lấy danh sách hội đồng của giảng viên
-        $hoiDongList = DB::table('thanhvienhoidong as tv')
-            ->join('hoidong as hd', 'tv.hoidong_id', '=', 'hd.id')
-            ->where('tv.magv', $magv)
-            ->select('hd.id as hoidong_id', 'hd.mahd', 'hd.tenhd', 'tv.vai_tro')
+        // ✅ Lấy danh sách đề tài mà GV đang hướng dẫn
+        $deTaiList = DB::table('detai as dt')
+            ->join('nhom as n', 'dt.nhom_id', '=', 'n.id')
+            ->join('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
+            ->where('dt.magv', $magv)
+            ->select(
+                'n.id as nhom_id',
+                'dt.mssv',
+                'sv.hoten',
+                'sv.lop',
+                'n.tennhom as nhom',
+                'n.tendt as tendt'
+            )
+            ->distinct()
             ->get();
 
-        \Log::info('hoiDongList count: ' . $hoiDongList->count());
-        \Log::info('hoiDongList: ' . json_encode($hoiDongList));
+        \Log::info('deTaiList count: ' . $deTaiList->count());
+        \Log::info('deTaiList: ' . json_encode($deTaiList));
 
         $danhSachTongKet = [];
 
-        foreach ($hoiDongList as $hd) {
-            \Log::info('Processing hoidong_id: ' . $hd->hoidong_id . ', mahd: ' . $hd->mahd);
-            
-            try {
-                $sinhVienDiem = $this->exportService->getDanhSachSinhVienDiem($hd->hoidong_id);
-                
-                \Log::info('sinhVienDiem count: ' . $sinhVienDiem->count());
-                
-                if (!$sinhVienDiem->isEmpty()) {
-                    $danhSachTongKet[] = [
-                        'hoiDong' => $hd,
-                        'sinhVienDiem' => $sinhVienDiem
-                    ];
-                    \Log::info('Added to danhSachTongKet');
-                } else {
-                    \Log::warning('sinhVienDiem is empty for hoidong_id: ' . $hd->hoidong_id);
-                }
-            } catch (\Exception $e) {
-                \Log::warning('Error getting diem for hoidong_id: ' . $hd->hoidong_id . ' - ' . $e->getMessage());
+        foreach ($deTaiList as $dt) {
+            \Log::info('Processing: mssv=' . $dt->mssv . ', nhom_id=' . $dt->nhom_id);
+
+            // ✅ Lấy điểm hướng dẫn
+            $diemHD = DB::table('phieu_cham_diem as pcd')
+                ->join('diem_sinh_vien as dsv', 'pcd.id', '=', 'dsv.phieu_cham_id')
+                ->where('pcd.nhom_id', $dt->nhom_id)
+                ->where('dsv.mssv', $dt->mssv)
+                ->where('pcd.loai_phieu', 'huong_dan')
+                ->value('dsv.diem_tong');
+
+            \Log::info('diemHD: ' . ($diemHD ?? 'NULL'));
+
+            // ✅ Lấy điểm phản biện
+            $diemPB = DB::table('phieu_cham_diem as pcd')
+                ->join('diem_sinh_vien as dsv', 'pcd.id', '=', 'dsv.phieu_cham_id')
+                ->where('pcd.nhom_id', $dt->nhom_id)
+                ->where('dsv.mssv', $dt->mssv)
+                ->where('pcd.loai_phieu', 'phan_bien')
+                ->value('dsv.diem_tong');
+
+            \Log::info('diemPB: ' . ($diemPB ?? 'NULL'));
+
+            // ✅ Lấy điểm hội đồng - từ hoidong_chamdiem
+            $diemHoiDong = DB::table('hoidong_chamdiem as hc')
+                ->where('hc.nhom_id', $dt->nhom_id)
+                ->where('hc.mssv', $dt->mssv)
+                ->value('hc.diem_tong');
+
+            \Log::info('diemHoiDong: ' . ($diemHoiDong ?? 'NULL'));
+
+            // Format các điểm
+            $diemHD_formatted = $diemHD !== null ? round($diemHD, 2) : '';
+            $diemPB_formatted = $diemPB !== null ? round($diemPB, 2) : '';
+            $diemHoiDong_formatted = $diemHoiDong !== null ? round($diemHoiDong, 2) : '';
+
+            // Tính điểm tổng kết = (HD + PB + HĐ) / 3
+            $diemTongKet = '';
+            if ($diemHD !== null && $diemPB !== null && $diemHoiDong !== null) {
+                $diemTongKet = round(($diemHD + $diemPB + $diemHoiDong) / 3, 2);
             }
+
+            $danhSachTongKet[] = [
+                'mssv' => $dt->mssv,
+                'hoten' => $dt->hoten,
+                'nhom' => $dt->nhom,
+                'lop' => $dt->lop,
+                'tendt' => $dt->tendt,
+                'diem_hd' => $diemHD_formatted,
+                'diem_pb' => $diemPB_formatted,
+                'diem_hoidong' => $diemHoiDong_formatted,
+                'diem_tongket' => $diemTongKet
+            ];
+
+            \Log::info('Added result: ' . json_encode([
+                'mssv' => $dt->mssv,
+                'diem_hd' => $diemHD_formatted,
+                'diem_pb' => $diemPB_formatted,
+                'diem_hoidong' => $diemHoiDong_formatted,
+                'diem_tongket' => $diemTongKet
+            ]));
         }
 
         \Log::info('danhSachTongKet final count: ' . count($danhSachTongKet));
@@ -75,50 +125,21 @@ class TongKetController extends Controller
     /**
      * Xuất Excel tổng kết
      */
-    public function exportExcel($hoidong_id)
+    public function exportExcel()
     {
-        \Log::info('=== EXPORT EXCEL CALLED ===');
-        \Log::info('hoidong_id: ' . $hoidong_id);
-        \Log::info('Session user: ' . json_encode(session('user')));
-
         $user = session('user');
         
-        if (!$user) {
-            \Log::error('User not found in session');
+        if (!$user || !isset($user->magv)) {
             return response()->json(['error' => 'User not found'], 401);
         }
 
-        if (!isset($user->magv)) {
-            \Log::error('magv not in user object');
-            return response()->json(['error' => 'magv not found'], 401);
-        }
-
         $magv = $user->magv;
+        \Log::info('=== EXPORT EXCEL CALLED ===');
         \Log::info('magv: ' . $magv);
-
-        // Kiểm tra giảng viên có trong hội đồng này không
-        $vaiTro = DB::table('thanhvienhoidong as tv')
-            ->join('hoidong as hd', 'tv.hoidong_id', '=', 'hd.id')
-            ->where('hd.id', $hoidong_id)
-            ->where('tv.magv', $magv)
-            ->value('tv.vai_tro');
-
-        \Log::info('vai_tro: ' . ($vaiTro ?? 'NULL'));
-
-        if (!$vaiTro) {
-            \Log::error('Teacher not in council or council not exist');
-            return response()->json(['error' => 'Bạn không có trong hội đồng này!'], 403);
-        }
-
-        // Chỉ thư ký và chủ tịch mới xuất được
-        if (!in_array($vaiTro, ['chu_tich', 'thu_ky'])) {
-            \Log::error('Permission denied. vai_tro: ' . $vaiTro);
-            return response()->json(['error' => 'Chỉ chủ tịch và thư ký mới có thể xuất Excel!'], 403);
-        }
 
         try {
             \Log::info('Starting export...');
-            $filepath = $this->exportService->exportExcel($hoidong_id);
+            $filepath = $this->exportService->exportExcelGVHuongDan($magv);
             \Log::info('Export successful, filepath: ' . $filepath);
             
             return response()->download($filepath, 'DiemTongKet_' . now()->format('YmdHis') . '.xlsx')

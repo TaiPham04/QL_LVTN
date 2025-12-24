@@ -25,12 +25,13 @@ class HoiDongController extends Controller
                 'h.id',
                 'h.mahd',
                 'h.tenhd',
+                'h.ngay_hoidong',
                 'h.trang_thai',
                 'h.ghi_chu',
                 DB::raw('COUNT(DISTINCT tv.magv) as so_thanh_vien'),
                 DB::raw('COUNT(DISTINCT hd.nhom_id) as so_de_tai')
             )
-            ->groupBy('h.id', 'h.mahd', 'h.tenhd', 'h.trang_thai', 'h.ghi_chu')
+            ->groupBy('h.id', 'h.mahd', 'h.tenhd', 'h.ngay_hoidong', 'h.trang_thai', 'h.ghi_chu')
             ->orderBy('h.mahd', 'desc')
             ->get();
 
@@ -43,10 +44,12 @@ class HoiDongController extends Controller
      */
     public function create()
     {
-        // ✅ FIX: Chỉ lấy giảng viên CHƯA nằm trong hội đồng nào
+        // ✅ FIX: Chỉ lấy giảng viên CHƯA nằm trong hội đồng cùng ngày
+        // Một GV có thể nằm trong nhiều hội đồng nhưng khác ngày
         $danhSachGiangVien = DB::table('giangvien as g')
             ->leftJoin('thanhvienhoidong as tv', 'g.magv', '=', 'tv.magv')
-            ->whereNull('tv.id')  // CHƯA nằm trong hội đồng nào
+            ->leftJoin('hoidong as h', 'tv.hoidong_id', '=', 'h.id')
+            ->whereRaw('(tv.id IS NULL OR h.ngay_hoidong IS NULL OR h.ngay_hoidong != CURDATE())')
             ->select('g.magv', 'g.hoten', 'g.email')
             ->orderBy('g.hoten')
             ->distinct()
@@ -63,6 +66,7 @@ class HoiDongController extends Controller
         $request->validate([
             'mahd' => 'required|unique:hoidong,mahd|max:20',
             'tenhd' => 'required|max:255',
+            'ngay_hoidong' => 'required|date|after_or_equal:today',
             'thanh_vien' => 'required|array|min:3|max:4',
             'thanh_vien.*' => 'required|exists:giangvien,magv',
             'vai_tro' => 'required|array',
@@ -71,6 +75,9 @@ class HoiDongController extends Controller
             'mahd.required' => 'Vui lòng nhập mã hội đồng',
             'mahd.unique' => 'Mã hội đồng đã tồn tại',
             'tenhd.required' => 'Vui lòng nhập tên hội đồng',
+            'ngay_hoidong.required' => 'Vui lòng chọn ngày hội đồng',
+            'ngay_hoidong.date' => 'Ngày hội đồng không hợp lệ',
+            'ngay_hoidong.after_or_equal' => 'Ngày hội đồng phải từ hôm nay trở đi',
             'thanh_vien.required' => 'Vui lòng chọn thành viên hội đồng',
             'thanh_vien.min' => 'Hội đồng phải có tối thiểu 3 thành viên',
             'thanh_vien.max' => 'Hội đồng tối đa 4 thành viên',
@@ -98,6 +105,7 @@ class HoiDongController extends Controller
             $hoiDong = HoiDong::create([
                 'mahd' => $request->mahd,
                 'tenhd' => $request->tenhd,
+                'ngay_hoidong' => $request->ngay_hoidong,
                 'ghi_chu' => $request->ghi_chu,
                 'trang_thai' => 'dang_mo'
             ]);
@@ -152,7 +160,11 @@ class HoiDongController extends Controller
         // Lấy sinh viên trong các nhóm
         $sinhVienTheoNhom = [];
         foreach ($deTai as $dt) {
-            $sinhVienTheoNhom[$dt->nhom_id] = Detai::where('nhom_id', $dt->nhom_id)->get();
+            $sinhVienTheoNhom[$dt->nhom_id] = DB::table('detai as d')
+                ->join('sinhvien as sv', 'd.mssv', '=', 'sv.mssv')
+                ->where('d.nhom_id', $dt->nhom_id)
+                ->select('sv.mssv', 'sv.hoten', 'sv.lop')
+                ->get();
         }
 
         return view('hoidong.show', compact('hoiDong', 'thanhVien', 'deTai', 'sinhVienTheoNhom'));
@@ -206,17 +218,31 @@ class HoiDongController extends Controller
         // ✅ FIX: Lấy đề tài CHƯA phân công 
         // VÀ GV hướng dẫn KHÔNG trong hội đồng
         // VÀ GV phản biện KHÔNG trong hội đồng
-        $deTaiKhaDung = DB::table('detai as d')
+        $query = DB::table('detai as d')
             ->join('nhom as n', 'd.nhom_id', '=', 'n.id')
             ->leftJoin('hoidong_detai as hd', 'n.id', '=', 'hd.nhom_id')
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
             ->leftJoin('phancong_phanbien as ppb', 'n.id', '=', 'ppb.nhom_id')
+            ->leftJoin('sinhvien as sv', 'd.mssv', '=', 'sv.mssv')
             ->whereNotNull('d.nhom_id')
             ->whereNull('hd.nhom_id')  // CHƯA phân công
             ->whereNotIn('d.magv', $magvTrongHoiDong)  // GV HD KHÔNG trong hội đồng
             ->whereRaw("(ppb.magv_phanbien IS NULL OR ppb.magv_phanbien NOT IN ('" . implode("','", $magvTrongHoiDong) . "'))")  // GV PB KHÔNG trong hội đồng
-            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan')
-            ->distinct()
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan', 'sv.mssv');
+
+        // ✅ THÊM: Tìm kiếm theo ký tự đại diện (wildcard)
+        $search = request('search');
+        if ($search) {
+            \Log::info('Search phanCong: ' . $search);
+            $query->where(function($q) use ($search) {
+                $q->where('n.tennhom', 'LIKE', '%' . $search . '%')        // Tìm theo tên nhóm
+                  ->orWhere('n.tendt', 'LIKE', '%' . $search . '%')        // Hoặc tên đề tài
+                  ->orWhere('g.hoten', 'LIKE', '%' . $search . '%')        // Hoặc tên GV hướng dẫn
+                  ->orWhere('sv.mssv', 'LIKE', '%' . $search . '%');       // ✅ Hoặc MSSV sinh viên
+            });
+        }
+
+        $deTaiKhaDung = $query->distinct()
             ->get();
 
         // Lấy sinh viên cho mỗi nhóm
@@ -225,13 +251,14 @@ class HoiDongController extends Controller
             $sinhVienTheoNhom[$dt->nhom_id] = Detai::where('nhom_id', $dt->nhom_id)->get();
         }
 
-        // Đề tài đã phân công cho hội đồng này
+        // ✅ Đề tài đã phân công cho hội đồng này - SELECT thu_tu
         $deTaiDaPhanCong = DB::table('hoidong_detai as hd')
             ->join('nhom as n', 'hd.nhom_id', '=', 'n.id')
             ->join('detai as d', 'hd.mdt', '=', 'd.madt')
             ->leftJoin('giangvien as g', 'd.magv', '=', 'g.magv')
             ->where('hd.hoidong_id', $id)
-            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan')
+            ->select('n.id as nhom_id', 'n.tennhom as nhom', 'n.tendt', 'd.magv', 'g.hoten as gv_huongdan', 'hd.thu_tu')
+            ->orderBy('hd.thu_tu')
             ->distinct()
             ->get();
 
@@ -245,7 +272,8 @@ class HoiDongController extends Controller
             'deTaiKhaDung',
             'sinhVienTheoNhom',
             'deTaiDaPhanCong',
-            'sinhVienDaPhanCong'
+            'sinhVienDaPhanCong',
+            'search'  // ✅ Truyền search sang view
         ));
     }
 
@@ -257,15 +285,20 @@ class HoiDongController extends Controller
         $request->validate([
             'nhom_id' => 'required|array|min:1',
             'nhom_id.*' => 'required|exists:nhom,id',
+            'thu_tu' => 'required|array',
+            'thu_tu.*' => 'required|integer|min:1',
         ], [
             'nhom_id.required' => 'Vui lòng chọn ít nhất 1 đề tài',
+            'thu_tu.required' => 'Vui lòng nhập thứ tự báo cáo',
+            'thu_tu.*.integer' => 'Thứ tự phải là số nguyên',
+            'thu_tu.*.min' => 'Thứ tự phải >= 1',
         ]);
 
         DB::beginTransaction();
         try {
             $hoiDong = HoiDong::findOrFail($id);
 
-            foreach ($request->nhom_id as $nhom_id) {
+            foreach ($request->nhom_id as $index => $nhom_id) {
                 $exists = HoiDongDeTai::where('nhom_id', $nhom_id)->exists();
                 if ($exists) {
                     DB::rollBack();
@@ -280,11 +313,12 @@ class HoiDongController extends Controller
                     return back()->with('error', "Không tìm thấy đề tài cho nhóm này!");
                 }
 
-                // Thêm hoidong_id vào insert
+                // ✅ Thêm thu_tu vào insert
                 DB::table('hoidong_detai')->insert([
                     'hoidong_id' => $hoiDong->id,
                     'nhom_id' => $nhom_id,
                     'mdt' => $detai->madt,
+                    'thu_tu' => $request->thu_tu[$index],
                     'created_at' => now()
                 ]);
             }
@@ -330,6 +364,30 @@ class HoiDongController extends Controller
     }
 
     /**
+     * API - Lấy danh sách giảng viên theo ngày
+     */
+    public function apiGetGiangVien(Request $request)
+    {
+        $ngay = $request->query('ngay');
+        
+        if (!$ngay) {
+            return response()->json([]);
+        }
+
+        // ✅ Lấy giảng viên KHÔNG nằm trong hội đồng cùng ngày
+        $giangvien = DB::table('giangvien as g')
+            ->leftJoin('thanhvienhoidong as tv', 'g.magv', '=', 'tv.magv')
+            ->leftJoin('hoidong as h', 'tv.hoidong_id', '=', 'h.id')
+            ->whereRaw("(tv.id IS NULL OR h.ngay_hoidong IS NULL OR h.ngay_hoidong != ?)", [$ngay])
+            ->select('g.magv', 'g.hoten')
+            ->orderBy('g.hoten')
+            ->distinct()
+            ->get();
+
+        return response()->json($giangvien);
+    }
+
+    /**
      * Export Excel danh sách đề tài của hội đồng
      */
     public function exportExcel($id)
@@ -345,3 +403,4 @@ class HoiDongController extends Controller
         }
     }
 }
+?>

@@ -93,13 +93,23 @@ class NhiemVuController extends Controller
             ->where('magv', $magv)
             ->first();
 
-        // ✅ FIX: Lấy thông tin giảng viên từ session
+        // ✅ FIX: Lấy danh sách giảng viên
+        $giangviens = DB::table('giangvien')
+            ->select('magv', 'hoten')
+            ->orderBy('hoten')
+            ->get();
+
+        // ✅ FIX: Lấy thông tin giảng viên từ bảng giangvien
+        $lecturerInfo = DB::table('giangvien')
+            ->where('magv', $magv)
+            ->first();
+
         $lecturer = (object)[
             'magv' => $magv,
-            'hoten' => $user->username ?? 'Giảng Viên'
+            'hoten' => $lecturerInfo ? ucwords(strtolower($lecturerInfo->hoten)) : 'Giảng Viên'
         ];
 
-        return view('lecturers.nhiemvu.form', compact('group', 'students', 'nhiemvu', 'lecturer', 'nhom_id'));
+        return view('lecturers.nhiemvu.form', compact('group', 'students', 'nhiemvu', 'lecturer', 'nhom_id', 'giangviens'));
     }
 
     /**
@@ -116,7 +126,7 @@ class NhiemVuController extends Controller
         $nhom_id = $request->nhom_id;
         $magv = session('user')->magv;
 
-        // ✅ Chuẩn bị dữ liệu - Convert empty string to NULL
+        // ✅ Chuẩn bị dữ liệu - Lưu mã giảng viên thay vì tên
         $data = [
             'nhom_id' => $nhom_id,
             'magv' => $magv,
@@ -131,9 +141,9 @@ class NhiemVuController extends Controller
             'ho_so_tai_lieu' => $request->ho_so_tai_lieu,
             'ngay_giao' => $request->ngay_giao,
             'ngay_hoanthanh' => $request->ngay_hoanthanh,
-            'nguoi_huongdan_1' => $request->nguoi_huongdan_1,
+            'nguoi_huongdan_1' => $request->magv_huongdan_1 ?? null,  // ✅ Lưu mã
             'phan_huongdan_1' => $request->phan_huongdan_1,
-            'nguoi_huongdan_2' => $request->nguoi_huongdan_2 ?: null,
+            'nguoi_huongdan_2' => $request->magv_huongdan_2 ?? null,  // ✅ Lưu mã
             'phan_huongdan_2' => $request->phan_huongdan_2 ?: null,
             'trangthai' => $request->trangthai ?? 'Đã điền',
             'updated_at' => now(),
@@ -149,7 +159,6 @@ class NhiemVuController extends Controller
 
             \Log::info('Kết quả lưu: Thành công');
 
-            // ✅ FIX: Redirect về index sau khi lưu thành công
             return redirect()->route('lecturers.nhiemvu.index')
                 ->with('success', 'Lưu nhiệm vụ thành công!');
 

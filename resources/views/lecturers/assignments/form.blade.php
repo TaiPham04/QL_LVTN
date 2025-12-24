@@ -5,7 +5,6 @@
     <!-- Header -->
     <div class="mb-4">
         <h4 class="mb-1">Tạo nhóm luận văn từ sinh viên được phân công</h4>
-        
     </div>
 
     @if(session('success'))
@@ -29,7 +28,7 @@
                 @csrf
                 
                 <div class="row g-3">
-                    <!-- 🆕 MÃ NHÓM READ-ONLY (TỰ ĐỘNG) -->
+                    <!-- MÃ NHÓM READ-ONLY (TỰ ĐỘNG) -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">
                             Mã Nhóm <span class="text-danger">*</span>
@@ -145,11 +144,11 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 12%">MSSV</th>
-                                <th style="width: 22%">Họ Tên</th>
-                                <th style="width: 12%">Lớp</th>
-                                <th style="width: 18%">Mã Nhóm</th>
-                                <th style="width: 24%">Đề Tài</th>
+                                <th style="width: 10%">MSSV</th>
+                                <th style="width: 18%">Họ Tên</th>
+                                <th style="width: 10%">Lớp</th>
+                                <th style="width: 15%">Mã Nhóm</th>
+                                <th style="width: 35%">Đề Tài</th>
                                 <th style="width: 12%">Trạng Thái</th>
                             </tr>
                         </thead>
@@ -169,7 +168,13 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <small>{{ $student->tendt ? substr($student->tendt, 0, 40) . '...' : '-' }}</small>
+                                        @if($student->tendt)
+                                            <small class="d-block">
+                                                {{ $student->tendt }}
+                                            </small>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
                                     </td>
                                     <td>
                                         @if($student->nhom)
@@ -294,6 +299,14 @@ body {
     vertical-align: middle;
 }
 
+.table td small {
+    display: block;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 300px;
+    line-height: 1.4;
+}
+
 .badge {
     padding: 6px 12px;
     font-weight: 500;
@@ -303,14 +316,12 @@ body {
     border-radius: 8px;
 }
 
-/* Style cho mã nhóm */
 #nhomCode {
     font-size: 16px;
     letter-spacing: 1px;
     text-transform: uppercase;
 }
 
-/* Style cho status select */
 .status-select {
     border: 1px solid #dee2e6;
     border-radius: 6px;
@@ -330,7 +341,6 @@ body {
     outline: none;
 }
 
-/* Toast styling */
 .toast-container {
     z-index: 9999;
 }
@@ -346,20 +356,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const nhomCodeInput = document.getElementById('nhomCode');
     const magv = '{{ session("user")->magv }}';
     
-    /**
-     * 🆕 FUNCTION: Tự động tạo mã nhóm
-     * Format: {magv}TH{4 số cuối MSSV}
-     */
     function generateNhomCode() {
-        // Lấy sinh viên đầu tiên được chọn
         const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
         
         if (checkedBoxes.length === 0) {
-            // Không có sinh viên nào chọn
             nhomCodeInput.value = 'VD: ' + magv + 'TH2805';
             nhomCodeInput.style.color = '#999';
         } else {
-            // Lấy MSSV của sinh viên đầu tiên
             const firstMssv = checkedBoxes[0].getAttribute('data-mssv');
             const lastFourDigits = firstMssv.slice(-4);
             const generatedCode = magv + 'TH' + lastFourDigits;
@@ -369,9 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    /**
-     * ⚠️ Giới hạn tối đa 2 sinh viên + Tự động tạo mã nhóm
-     */
     checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             const checkedCount = document.querySelectorAll('.student-checkbox:checked').length;
@@ -382,23 +382,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // ✅ Tự động tạo mã nhóm khi chọn sinh viên
             generateNhomCode();
         });
     });
     
-    // 🆕 Khởi tạo mã nhóm lúc load trang
     generateNhomCode();
     
-    /**
-     * 🆕 XỬ LÝ LƯU TRẠNG THÁI
-     */
     const btnSaveStatus = document.getElementById('btnSaveStatus');
     const statusSelects = document.querySelectorAll('.status-select');
     
     if (btnSaveStatus) {
         btnSaveStatus.addEventListener('click', function() {
-            // Thu thập tất cả thay đổi trạng thái
             const changes = [];
             
             statusSelects.forEach(select => {
@@ -406,7 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const newStatus = select.value;
                 const oldStatus = select.getAttribute('data-old-status') || select.value;
                 
-                // Chỉ thêm nếu có thay đổi
                 if (newStatus !== oldStatus) {
                     changes.push({
                         nhom: nhom,
@@ -420,12 +413,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Hiển thị loading
             const originalText = btnSaveStatus.innerHTML;
             btnSaveStatus.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang lưu...';
             btnSaveStatus.disabled = true;
             
-            // Gửi request lưu trạng thái
             fetch('{{ route("lecturers.assignments.update-all-status") }}', {
                 method: 'POST',
                 credentials: 'include',
@@ -447,7 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     showToast('success', 'Lưu thay đổi thành công!');
                     
-                    // Cập nhật data-old-status
                     changes.forEach(change => {
                         const select = document.querySelector(`.status-select[data-nhom="${change.nhom}"]`);
                         if (select) {
@@ -455,7 +445,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
                     
-                    // Reload trang sau 1 giây
                     setTimeout(() => {
                         window.location.reload();
                     }, 1000);
@@ -473,16 +462,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Lưu giá trị ban đầu
         statusSelects.forEach(select => {
             select.setAttribute('data-old-status', select.value);
         });
     }
 });
 
-/**
- * 🆕 FUNCTION: Hiển thị toast notification
- */
 function showToast(type, message) {
     const toastContainer = document.querySelector('.toast-container') || createToastContainer();
     
@@ -515,9 +500,6 @@ function showToast(type, message) {
     });
 }
 
-/**
- * 🆕 FUNCTION: Tạo container cho toast
- */
 function createToastContainer() {
     const container = document.createElement('div');
     container.className = 'toast-container position-fixed top-0 end-0 p-3';

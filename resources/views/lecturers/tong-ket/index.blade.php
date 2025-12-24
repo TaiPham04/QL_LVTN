@@ -3,10 +3,17 @@
 @section('content')
 <div class="container-fluid py-4">
     <div class="card">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
-                <i class="fa fa-chart-line me-2"></i>Điểm Tổng Kết
+                <i class="fa fa-chart-line me-2"></i>Điểm Tổng Kết - Các Đề Tài Hướng Dẫn
             </h5>
+            @if(!$khongCoDiem)
+                <button type="button" 
+                        class="btn btn-success btn-sm export-excel-btn"
+                        title="Xuất Excel">
+                    <i class="fa fa-file-excel me-2"></i>Xuất Excel
+                </button>
+            @endif
         </div>
 
         <div class="card-body">
@@ -33,82 +40,72 @@
                 <div class="text-center py-5">
                     <i class="fa fa-chart-line fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted">Không có dữ liệu điểm tổng kết</h5>
-                    <p class="text-muted">Bạn chưa có trong hội đồng nào hoặc chưa có sinh viên</p>
+                    <p class="text-muted">Bạn chưa hướng dẫn đề tài nào hoặc chưa có điểm</p>
                 </div>
             @else
-                @foreach($danhSachTongKet as $item)
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">
-                                <strong>{{ $item['hoiDong']->mahd }}</strong> - {{ $item['hoiDong']->tenhd }}
-                            </h6>
-                            
-                            {{-- Nút Xuất Excel (Chỉ Chủ Tịch & Thư Ký) --}}
-                            @if(in_array($item['hoiDong']->vai_tro, ['chu_tich', 'thu_ky']))
-                                <button type="button" 
-                                        class="btn btn-success btn-sm export-excel-btn"
-                                        data-hoidong-id="{{ $item['hoiDong']->hoidong_id }}"
-                                        data-mahd="{{ $item['hoiDong']->mahd }}"
-                                        title="Xuất Excel">
-                                    <i class="fa fa-file-excel me-1"></i>Xuất Excel
-                                </button>
-                            @endif
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 8%">MSSV</th>
-                                        <th style="width: 15%">Tên Sinh Viên</th>
-                                        <th style="width: 8%">Nhóm</th>
-                                        <th style="width: 8%">Lớp</th>
-                                        <th style="width: 15%">GVHD</th>
-                                        <th style="width: 20%">Tên Đề Tài</th>
-                                        <th style="width: 8%" class="text-center">Điểm HD</th>
-                                        <th style="width: 8%" class="text-center">Điểm PB</th>
-                                        <th style="width: 10%" class="text-center">Điểm Hội Đồng</th>
-                                        <th style="width: 12%" class="text-center">Điểm Tổng Kết</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($item['sinhVienDiem'] as $sv)
-                                        <tr>
-                                            <td>{{ $sv['mssv'] }}</td>
-                                            <td>{{ $sv['hoten'] }}</td>
-                                            <td class="text-center">{{ $sv['nhom'] }}</td>
-                                            <td class="text-center">{{ $sv['lop'] }}</td>
-                                            <td>{{ $sv['gvhd'] ?? 'N/A' }}</td>
-                                            <td>{{ $sv['tendt'] }}</td>
-                                            <td class="text-center">
-                                                {{ $sv['diem_hd'] !== '' ? number_format($sv['diem_hd'], 2) : '-' }}
-                                            </td>
-                                            <td class="text-center">
-                                                {{ $sv['diem_pb'] !== '' ? number_format($sv['diem_pb'], 2) : '-' }}
-                                            </td>
-                                            <td class="text-center">
-                                                {{ $sv['diem_hoidong'] !== '' ? number_format($sv['diem_hoidong'], 2) : '-' }}
-                                            </td>
-                                            <td class="text-center">
-                                                @if($sv['diem_tongket'] !== '')
-                                                    <strong>{{ number_format($sv['diem_tongket'], 2) }}</strong>
-                                                @else
-                                                    <span class="text-muted">-</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="10" class="text-center text-muted py-3">
-                                                Không có sinh viên
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                @endforeach
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-primary">
+                            <tr>
+                                <th class="text-center" style="width: 7%">MSSV</th>
+                                <th style="width: 15%">Tên Sinh Viên</th>
+                                <th class="text-center" style="width: 6%">Nhóm</th>
+                                <th class="text-center" style="width: 6%">Lớp</th>
+                                <th style="width: 25%">Tên Đề Tài</th>
+                                <th class="text-center" style="width: 8%">Điểm HD</th>
+                                <th class="text-center" style="width: 8%">Điểm PB</th>
+                                <th class="text-center" style="width: 10%">Điểm HĐ</th>
+                                <th class="text-center" style="width: 10%">Điểm Tổng Kết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($danhSachTongKet as $sv)
+                                <tr>
+                                    <td class="text-center"><code>{{ $sv['mssv'] }}</code></td>
+                                    <td>{{ $sv['hoten'] }}</td>
+                                    <td class="text-center">{{ $sv['nhom'] }}</td>
+                                    <td class="text-center">{{ $sv['lop'] }}</td>
+                                    <td>{{ $sv['tendt'] }}</td>
+                                    <td class="text-center">
+                                        @if($sv['diem_hd'] !== '')
+                                            <span class="badge bg-info">{{ number_format($sv['diem_hd'], 2) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($sv['diem_pb'] !== '')
+                                            <span class="badge bg-info">{{ number_format($sv['diem_pb'], 2) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($sv['diem_hoidong'] !== '')
+                                            <span class="badge bg-warning">{{ number_format($sv['diem_hoidong'], 2) }}</span>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @if($sv['diem_tongket'] !== '')
+                                            <strong><span class="badge bg-success">{{ number_format($sv['diem_tongket'], 2) }}</span></strong>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+                                        Không có dữ liệu
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             @endif
         </div>
     </div>
@@ -117,35 +114,47 @@
 <style>
     .table th {
         font-weight: 600;
-        background-color: #f8f9fa;
-        border-top: 2px solid #dee2e6;
+        border-top: none;
+        padding: 12px;
     }
 
     .table td {
         vertical-align: middle;
+        padding: 10px;
     }
 
     .alert {
         border-radius: 8px;
         border: none;
     }
+
+    code {
+        background-color: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+        color: #333;
+    }
+
+    .badge {
+        font-size: 12px;
+        padding: 5px 8px;
+    }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const exportBtns = document.querySelectorAll('.export-excel-btn');
+    const exportBtn = document.querySelector('.export-excel-btn');
     
-    exportBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function(e) {
             e.preventDefault();
             
-            const hoidongId = this.dataset.hoidongId;  // ✅ Lấy hoidong_id (số)
-            const mahd = this.dataset.mahd;             // Cho hiển thị trong tên file
+            this.disabled = true;
+            this.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Đang xuất...';
             
-            // ✅ Dùng hoidong_id trong route
-            const url = "{{ route('lecturers.tong-ket.export-excel', ':hoidong_id') }}".replace(':hoidong_id', hoidongId);
+            const url = "{{ route('lecturers.tong-ket.export-excel') }}";
             
-            console.log('Exporting hoidong_id:', hoidongId, 'mahd:', mahd, 'URL:', url);
+            console.log('Exporting all data, URL:', url);
             
             fetch(url, {
                 method: 'GET',
@@ -158,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (!response.ok) {
                     return response.json().then(data => {
-                        showAlert('warning', data.error || 'Lỗi không xác định');
+                        showAlert('danger', data.error || 'Lỗi không xác định');
                         throw new Error(data.error);
                     });
                 }
@@ -171,19 +180,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 const blobUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
-                a.download = `DiemTongKet_${mahd}.xlsx`;
+                a.download = `DiemTongKet_${new Date().toLocaleDateString('vi-VN')}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(blobUrl);
                 a.remove();
                 
-                showAlert('success', 'Xuất file Excel thành công!');
+                showAlert('success', '✓ Xuất file Excel thành công!');
+                
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<i class="fa fa-file-excel me-2"></i>Xuất Excel';
             })
             .catch(error => {
                 console.error('Error:', error);
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<i class="fa fa-file-excel me-2"></i>Xuất Excel';
             });
         });
-    });
+    }
     
     function showAlert(type, message) {
         const alertDiv = document.createElement('div');
@@ -191,8 +205,8 @@ document.addEventListener('DOMContentLoaded', function() {
         alertDiv.role = 'alert';
         
         let icon = 'check-circle';
+        if (type === 'danger') icon = 'exclamation-circle';
         if (type === 'warning') icon = 'exclamation-triangle';
-        else if (type === 'danger') icon = 'exclamation-circle';
         
         alertDiv.innerHTML = `
             <i class="fa fa-${icon} me-2"></i>

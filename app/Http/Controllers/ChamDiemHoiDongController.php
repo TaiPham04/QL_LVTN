@@ -49,7 +49,7 @@ class ChamDiemHoiDongController extends Controller
 
         $hoidong_id = $hoiDong->id;
 
-        // Kiểm tra quyền
+        // Kiểm tra quyền và lấy vai trò của GV
         $vaiTroGV = DB::table('thanhvienhoidong')
             ->where('hoidong_id', $hoidong_id)
             ->where('magv', $magv)
@@ -59,7 +59,7 @@ class ChamDiemHoiDongController extends Controller
             return back()->with('error', 'Bạn không có trong hội đồng này!');
         }
 
-        // Lấy danh sách thành viên
+        // Lấy danh sách thành viên hội đồng
         $thanhVien = DB::table('thanhvienhoidong as tv')
             ->join('giangvien as gv', 'tv.magv', '=', 'gv.magv')
             ->where('tv.hoidong_id', $hoidong_id)
@@ -85,7 +85,7 @@ class ChamDiemHoiDongController extends Controller
                 ->get();
         }
 
-        // Lấy điểm đã chấm
+        // Lấy điểm đã chấm (cấu trúc mới: diem_chu_tich, diem_thu_ky, diem_thanh_vien_1, diem_thanh_vien_2)
         $diemHienTai = DB::table('hoidong_chamdiem')
             ->where('hoidong_id', $hoidong_id)
             ->get()
@@ -93,9 +93,13 @@ class ChamDiemHoiDongController extends Controller
                 return $item->nhom_id . '_' . $item->mssv;
             })
             ->map(function($group) {
-                return $group->keyBy('magv_danh_gia')->map(function($item) {
-                    return ['diem' => $item->diem];
-                })->toArray();
+                $first = $group->first();
+                return [
+                    'diem_chu_tich' => $first->diem_chu_tich,
+                    'diem_thu_ky' => $first->diem_thu_ky,
+                    'diem_thanh_vien_1' => $first->diem_thanh_vien_1,
+                    'diem_thanh_vien_2' => $first->diem_thanh_vien_2,
+                ];
             });
 
         return view('lecturers.cham-diem.hoi-dong.form', compact(
@@ -110,7 +114,7 @@ class ChamDiemHoiDongController extends Controller
     }
 
     /**
-     * Lưu điểm chấm
+     * Lưu điểm chấm (cấu trúc mới)
      */
     public function store(Request $request, $mahd)
     {
@@ -137,65 +141,131 @@ class ChamDiemHoiDongController extends Controller
 
         DB::beginTransaction();
         try {
-            // Lấy dữ liệu từ request
             $diemData = $request->input('diem', []);
+            
+            \Log::info('=== STORE DIEM ===');
+            \Log::info('mahd: ' . $mahd);
+            \Log::info('hoidong_id: ' . $hoidong_id);
+            \Log::info('diemData count: ' . count($diemData));
+            \Log::info('diemData: ' . json_encode($diemData));
+            
+            $countInsert = 0;
 
-            // Lưu điểm
+            // Lưu điểm theo cấu trúc mới
             foreach ($diemData as $key => $diemArray) {
-                // Key format: "nhom_id_mssv"
+                \Log::info('Processing key: ' . $key);
+                \Log::info('diemArray: ' . json_encode($diemArray));
+                
                 $parts = explode('_', $key);
-                if (count($parts) < 2) continue;
+                if (count($parts) < 2) {
+                    \Log::warning('Invalid key: ' . $key);
+                    continue;
+                }
 
-                // Lấy nhom_id (phần tử đầu tiên)
                 $nhom_id = $parts[0];
-                // Lấy mssv (từ phần tử thứ 2 trở đi, vì mssv có thể chứa dấu gạch ngang)
                 $mssv = implode('_', array_slice($parts, 1));
 
-                foreach ($diemArray as $magv_danh_gia => $diem) {
-                    if ($diem === null || $diem === '') {
+                \Log::info('nhom_id: ' . $nhom_id . ', mssv: ' . $mssv);
+
+                // Lấy thông tin sinh viên và đề tài
+                $sinhVien = DB::table('sinhvien')->where('mssv', $mssv)->first();
+                $mdt = DB::table('detai')->where('nhom_id', $nhom_id)->value('madt');
+
+                if (!$mdt || !$sinhVien) {
+                    \Log::warning('Missing mdt or sinhVien. mdt: ' . ($mdt ?? 'NULL') . ', sinhVien: ' . ($sinhVien ? 'OK' : 'NULL'));
+                    continue;
+                }
+
+                // Chuẩn bị dữ liệu update/insert
+                $updateData = [
+                    'hoidong_id' => $hoidong_id,
+                    'mahd' => $mahd,
+                    'nhom_id' => $nhom_id,
+                    'mdt' => $mdt,
+                    'mssv' => $mssv,
+                    'ten_sinh_vien' => $sinhVien->hoten,
+                    'lop' => $sinhVien->lop,
+                    'ngay_cham_diem' => now(),
+                ];
+
+                // ✅ Áp dụng điểm từ form
+                $hasAnyDiem = false;
+                foreach ($diemArray as $vaiTro => $diem) {
+                    \Log::info('vaiTro: ' . $vaiTro . ', diem: ' . ($diem ?? 'NULL'));
+                    
+                    if ($diem === null || $diem === '' || $diem === '0') {
                         continue;
                     }
 
-                    // Lấy mdt từ detai
-                    $mdt = DB::table('detai')
-                        ->where('nhom_id', $nhom_id)
-                        ->value('madt');
+                    $hasAnyDiem = true;
 
-                    if (!$mdt) {
-                        continue; // Bỏ qua nếu không tìm thấy mdt
+                    // Map từ tên vai trò → tên cột
+                    if ($vaiTro === 'chu_tich') {
+                        $updateData['diem_chu_tich'] = (float)$diem;
+                    } elseif ($vaiTro === 'thu_ky') {
+                        $updateData['diem_thu_ky'] = (float)$diem;
+                    } elseif ($vaiTro === 'thanh_vien_1') {
+                        $updateData['diem_thanh_vien_1'] = (float)$diem;
+                    } elseif ($vaiTro === 'thanh_vien_2') {
+                        $updateData['diem_thanh_vien_2'] = (float)$diem;
                     }
+                }
 
-                    // Xóa cũ
+                if (!$hasAnyDiem) {
+                    \Log::info('No diem found for this key');
+                    continue;
+                }
+
+                \Log::info('updateData before diem_tong: ' . json_encode($updateData));
+
+                // ✅ Tính diem_tong = trung bình 4 cột
+                $diemValues = [];
+                foreach (['diem_chu_tich', 'diem_thu_ky', 'diem_thanh_vien_1', 'diem_thanh_vien_2'] as $col) {
+                    if (isset($updateData[$col]) && $updateData[$col] !== null) {
+                        $diemValues[] = $updateData[$col];
+                    }
+                }
+
+                if (!empty($diemValues)) {
+                    $updateData['diem_tong'] = round(array_sum($diemValues) / count($diemValues), 2);
+                }
+
+                \Log::info('updateData final: ' . json_encode($updateData));
+
+                // ✅ Update hoặc Insert
+                $exists = DB::table('hoidong_chamdiem')
+                    ->where('hoidong_id', $hoidong_id)
+                    ->where('nhom_id', $nhom_id)
+                    ->where('mssv', $mssv)
+                    ->exists();
+
+                if ($exists) {
+                    \Log::info('Updating existing record');
                     DB::table('hoidong_chamdiem')
                         ->where('hoidong_id', $hoidong_id)
                         ->where('nhom_id', $nhom_id)
                         ->where('mssv', $mssv)
-                        ->where('magv_danh_gia', $magv_danh_gia)
-                        ->delete();
-
-                    // Lưu mới
-                    DB::table('hoidong_chamdiem')->insert([
-                        'hoidong_id' => $hoidong_id,
-                        'mahd' => $mahd,
-                        'nhom_id' => $nhom_id,
-                        'mdt' => $mdt,
-                        'mssv' => $mssv,
-                        'magv_danh_gia' => $magv_danh_gia,
-                        'diem' => (float)$diem,
-                        'ngay_cham_diem' => now(),
-                        'created_at' => now()
-                    ]);
+                        ->update($updateData);
+                } else {
+                    \Log::info('Inserting new record');
+                    DB::table('hoidong_chamdiem')->insert($updateData);
                 }
+
+                $countInsert++;
+                \Log::info('countInsert: ' . $countInsert);
             }
 
             DB::commit();
 
+            \Log::info('Commit successful. Total: ' . $countInsert);
+
             return redirect()->route('lecturers.cham-diem.hoi-dong.index')
-                ->with('success', 'Lưu điểm thành công!');
+                ->with('success', 'Lưu điểm thành công! (' . $countInsert . ' bản ghi)');
 
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Store HoiDong ChamDiem Error: ' . $e->getMessage());
+            \Log::error('Stack: ' . $e->getTraceAsString());
             return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
     }

@@ -7,24 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 class HoiDong extends Model
 {
     protected $table = 'hoidong';
-    protected $primaryKey = 'id';
-    public $timestamps = false;  // ✅ PHẢI CÓ DÒNG NÀY
-    public $incrementing = true;  // ✅ VÀ CÓ DÒNG NÀY
+    public $timestamps = false;  // ← Tắt timestamps
     
     protected $fillable = [
         'mahd',
         'tenhd',
+        'ngay_hoidong',
         'ghi_chu',
-        'trang_thai',
+        'trang_thai'
+    ];
+
+    protected $dates = [
+        'ngay_hoidong'
     ];
 
     public function thanhVien()
     {
-        return $this->hasMany(ThanhVienHoiDong::class, 'hoidong_id', 'id');
+        return $this->hasMany(ThanhVienHoiDong::class, 'hoidong_id');
     }
 
     public function deTai()
     {
-        return $this->hasMany(HoiDongDeTai::class, 'hoidong_id', 'id');
+        return $this->hasMany(HoiDongDeTai::class, 'hoidong_id');
     }
 }
