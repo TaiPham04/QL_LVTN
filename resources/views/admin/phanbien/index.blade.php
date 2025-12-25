@@ -27,36 +27,6 @@
         </div>
     @endif
 
-    {{-- Form tìm kiếm --}}
-    <div class="card shadow-sm rounded-3 mb-4">
-        <div class="card-header bg-info text-white">
-            <i class="bi bi-search me-2"></i>Tìm kiếm
-        </div>
-        <div class="card-body">
-            <form method="GET" action="{{ route('admin.phanbien.index') }}" class="row g-3 align-items-end">
-                <div class="col-md-6">
-                    <input type="text" name="search" class="form-control" placeholder="Tìm theo: nhóm, MSSV, đề tài, giảng viên..." 
-                           value="{{ request('search') }}">
-                </div>
-                <div class="col-md-6">
-                    <button type="submit" formnovalidate class="btn btn-info w-100">
-                        <i class="bi bi-search me-2"></i>Tìm kiếm
-                    </button>
-                </div>
-                @if(request('search'))
-                    <div class="col-12">
-                        <a href="{{ route('admin.phanbien.index') }}" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Xóa tìm kiếm
-                        </a>
-                        <span class="badge bg-success">
-                            Kết quả: {{ count($groupedTopics) }} nhóm
-                        </span>
-                    </div>
-                @endif
-            </form>
-        </div>
-    </div>
-
     <form id="phancong-form" action="{{ route('admin.phanbien.store') }}" method="POST">
         @csrf
 
@@ -68,8 +38,12 @@
                         <span><i class="bi bi-folder2-open me-2"></i>Danh sách nhóm đề tài</span>
                         <span class="badge bg-light text-dark">Tổng: {{ count($groupedTopics) }} nhóm</span>
                     </div>
+
+                    {{-- ✅ DataTable Controls Container --}}
+                    <div class="card-body border-bottom p-3" id="table-controls" style="background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; gap: 15px;"></div>
+
                     <div class="card-body p-0" style="max-height: 600px; overflow-y: auto;">
-                        <table class="table table-hover table-bordered mb-0">
+                        <table id="phanBienTable" class="table table-hover table-bordered mb-0">
                             <thead class="table-light sticky-top">
                                 <tr>
                                     <th class="text-center" style="width: 50px;">
@@ -108,7 +82,7 @@
                                     <td>
                                         <small><strong>{{ $topic->tendt }}</strong></small>
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         <small class="text-primary">
                                             <i class="bi bi-person-badge"></i> {{ $topic->tengv_hd ?? 'Chưa có' }}
                                         </small>
@@ -175,9 +149,9 @@
                             <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="bi bi-save me-2"></i>Lưu phân công
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="clearSelection()">
-                                <i class="bi bi-arrow-counterclockwise me-2"></i>Xóa lựa chọn
-                            </button>
+                            <a href="#" onclick="exportExcel(event)" class="btn btn-success btn-lg">
+                                <i class="bi bi-file-earmark-excel me-2"></i>Xuất Excel
+                            </a>
                         </div>
 
                         <div class="mt-3 p-3 bg-light rounded">
@@ -197,6 +171,173 @@
     </form>
 </div>
 
+{{-- ✅ DataTables CSS + JS --}}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+
+<style>
+    /* Style toolbar */
+    #table-controls {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 15px !important;
+        flex-wrap: wrap !important;
+    }
+
+    #table-controls .dt-buttons {
+        display: inline-flex !important;
+        gap: 10px !important;
+        align-items: center !important;
+        order: 1;
+    }
+
+    #table-controls .dt-buttons button {
+        border-radius: 6px !important;
+        padding: 6px 14px !important;
+        font-weight: 500 !important;
+        white-space: nowrap !important;
+    }
+
+    #table-controls .dataTables_filter {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        margin: 0 !important;
+        order: 2;
+    }
+
+    #table-controls .dataTables_filter label {
+        display: inline-block !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+    }
+
+    #table-controls .dataTables_filter input {
+        border-radius: 6px !important;
+        padding: 8px 12px !important;
+        border: 1px solid #dee2e6 !important;
+        width: 250px !important;
+    }
+
+    #table-controls .dataTables_filter input:focus {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    }
+
+    .table thead {
+        background-color: #f8f9fa !important;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+    }
+</style>
+
+<script>
+$(document).ready(function() {
+    // ✅ Destroy DataTable cũ nếu có (để reload lại)
+    if ($.fn.DataTable.isDataTable('#phanBienTable')) {
+        $('#phanBienTable').DataTable().destroy();
+    }
+
+    // ✅ Khởi tạo DataTable với Column Visibility + Smart Search
+    var table = $('#phanBienTable').DataTable({
+        dom: 'B<"clear">frtip',
+        buttons: [
+            {
+                extend: 'colvis',
+                text: '<i class="bi bi-eye-fill"></i> Hiển thị/Ẩn cột',
+                className: 'btn btn-sm btn-outline-primary'
+            }
+        ],
+        columnDefs: [
+            {
+                targets: 0,  // Checkbox column
+                visible: true,
+                searchable: false
+            }
+        ],
+        paging: false,
+        searching: true,
+        ordering: true,
+        info: false,
+        language: {
+            search: "Tìm kiếm:",
+            searchPlaceholder: "Tìm theo: nhóm, MSSV, đề tài, giảng viên...",
+            zeroRecords: "Không tìm thấy dữ liệu",
+            infoEmpty: "Không có dữ liệu"
+        },
+        initComplete: function() {
+            // ✅ Di chuyển buttons vào table-controls
+            $('div.dt-buttons').prependTo('#table-controls');
+            
+            // ✅ Di chuyển search vào table-controls
+            $('div.dataTables_filter').appendTo('#table-controls');
+            
+            // Style input
+            $('div.dataTables_filter input')
+                .addClass('form-control form-control-sm')
+                .attr('placeholder', 'Tìm theo: nhóm, MSSV, đề tài, giảng viên...');
+        }
+    });
+
+    // ✅ Custom search filter dựa trên column visibility
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        var searchValue = $('div.dataTables_filter input').val().toLowerCase();
+        
+        if (!searchValue) {
+            return true; // Không tìm → show all
+        }
+        
+        // Lấy visibility của cột GVHD (4) và GV Phản biện (5)
+        var gvhdVisible = table.column(4).visible();
+        var gvpbVisible = table.column(5).visible();
+        
+        // Lấy dữ liệu từ data array (text của cell)
+        var gvhdData = data[4] ? data[4].toLowerCase() : '';
+        var gvpbData = data[5] ? data[5].toLowerCase() : '';
+        
+        // Nếu cột GVHD visible → tìm trong GVHD
+        if (gvhdVisible && gvhdData.includes(searchValue)) {
+            return true;
+        }
+        
+        // Nếu cột GV Phản biện visible → tìm trong GV Phản biện
+        if (gvpbVisible && gvpbData.includes(searchValue)) {
+            return true;
+        }
+        
+        // Tìm trong các cột khác (Nhóm, MSSV, Đề tài)
+        var nhomData = data[1] ? data[1].toLowerCase() : '';
+        var svData = data[2] ? data[2].toLowerCase() : '';
+        var dtData = data[3] ? data[3].toLowerCase() : '';
+        
+        if (nhomData.includes(searchValue) || svData.includes(searchValue) || dtData.includes(searchValue)) {
+            return true;
+        }
+        
+        return false;
+    });
+
+    // ✅ Thêm event listener khi change column visibility
+    table.on('column-visibility.dt', function(e, settings, column, state) {
+        console.log('Column ' + column + ' is now ' + (state ? 'visible' : 'hidden'));
+        
+        // Trigger search redraw để apply custom filter
+        var currentSearch = table.search();
+        table.search(currentSearch).draw();
+    });
+});
+</script>
+
 <script>
 // ✅ Lưu và khôi phục state khi tìm kiếm
 
@@ -207,12 +348,11 @@ window.addEventListener('load', function() {
         document.getElementById('magv_phanbien').value = savedGV;
     }
     
-    // Khôi phục checkbox đã chọn (chỉ những checkbox tồn tại trong DOM hiện tại)
+    // Khôi phục checkbox đã chọn
     const savedCheckboxes = JSON.parse(sessionStorage.getItem('selected_topics') || '[]');
     const currentCheckboxes = Array.from(document.querySelectorAll('.topic-checkbox')).map(chk => chk.value);
     
     savedCheckboxes.forEach(nhomId => {
-        // Chỉ restore nếu checkbox này tồn tại trong page hiện tại
         if (currentCheckboxes.includes(nhomId)) {
             const checkbox = document.querySelector(`input[value="${nhomId}"]`);
             if (checkbox) {
@@ -244,7 +384,6 @@ document.getElementById('checkAll').addEventListener('change', function() {
     const checkboxes = document.querySelectorAll('.topic-checkbox');
     checkboxes.forEach(chk => chk.checked = this.checked);
     
-    // Lưu tất cả checkbox đã chọn
     const selectedIds = Array.from(document.querySelectorAll('.topic-checkbox:checked'))
         .map(chk => chk.value);
     sessionStorage.setItem('selected_topics', JSON.stringify(selectedIds));
@@ -257,17 +396,25 @@ function updateSelectedCount() {
     document.getElementById('selectedCount').textContent = count;
 }
 
-// Xóa lựa chọn
-function clearSelection() {
-    document.querySelectorAll('.topic-checkbox').forEach(chk => chk.checked = false);
-    document.getElementById('checkAll').checked = false;
-    document.getElementById('magv_phanbien').value = '';
-    sessionStorage.removeItem('selected_gv');
-    sessionStorage.removeItem('selected_topics');
-    updateSelectedCount();
+// ✅ Xuất Excel
+function exportExcel(e) {
+    e.preventDefault();
+    
+    const selectedTopics = document.querySelectorAll('.topic-checkbox:checked');
+    
+    if (selectedTopics.length === 0) {
+        alert('Vui lòng chọn ít nhất 1 nhóm để xuất!');
+        return false;
+    }
+    
+    // Lấy danh sách nhóm được chọn
+    const selectedIds = Array.from(selectedTopics).map(chk => chk.value).join(',');
+    
+    // Redirect tới route export với parameters
+    window.location.href = `{{ route('admin.phanbien.export') }}?nhom_ids=${selectedIds}`;
 }
 
-// Kiểm tra trước khi submit - CHỈ cho form phân công (#phancong-form)
+// Kiểm tra trước khi submit
 document.getElementById('phancong-form').addEventListener('submit', function(e) {
     const selectedTopics = document.querySelectorAll('.topic-checkbox:checked');
     
@@ -284,7 +431,7 @@ document.getElementById('phancong-form').addEventListener('submit', function(e) 
         return false;
     }
     
-    // Kiểm tra không chọn GVHD làm phản biện
+    // Kiểm tra GVHD không được làm phản biện
     let hasError = false;
     selectedTopics.forEach(chk => {
         const magvHd = chk.getAttribute('data-magv-hd');
@@ -299,7 +446,6 @@ document.getElementById('phancong-form').addEventListener('submit', function(e) 
         return false;
     }
     
-    // ✅ Kiểm tra confirm trước khi submit
     const confirmed = confirm(`Bạn có chắc muốn phân công ${selectedTopics.length} nhóm cho giảng viên này?`);
     if (!confirmed) {
         e.preventDefault();
@@ -307,7 +453,7 @@ document.getElementById('phancong-form').addEventListener('submit', function(e) 
     }
 });
 
-// Khởi tạo count
 updateSelectedCount();
 </script>
+
 @endsection

@@ -374,18 +374,44 @@ class HoiDongController extends Controller
             return response()->json([]);
         }
 
-        // ✅ Lấy giảng viên KHÔNG nằm trong hội đồng cùng ngày
+        // ✅ Lấy những GV đã nằm trong hội đồng cùng ngày (để exclude)
+        $magvDaTrongHoiDongNgayNay = DB::table('thanhvienhoidong as tv')
+            ->join('hoidong as h', 'tv.hoidong_id', '=', 'h.id')
+            ->where('h.ngay_hoidong', $ngay)
+            ->pluck('tv.magv')
+            ->toArray();
+
+        // ✅ Lấy tất cả GV, trừ những người đã trong hội đồng ngày này
         $giangvien = DB::table('giangvien as g')
-            ->leftJoin('thanhvienhoidong as tv', 'g.magv', '=', 'tv.magv')
-            ->leftJoin('hoidong as h', 'tv.hoidong_id', '=', 'h.id')
-            ->whereRaw("(tv.id IS NULL OR h.ngay_hoidong IS NULL OR h.ngay_hoidong != ?)", [$ngay])
             ->select('g.magv', 'g.hoten')
+            ->whereNotIn('g.magv', $magvDaTrongHoiDongNgayNay)
             ->orderBy('g.hoten')
-            ->distinct()
             ->get();
 
         return response()->json($giangvien);
     }
+
+    /**
+     * API - Lưu ngày hội đồng
+     */
+    public function apiSaveDate(Request $request)
+    {
+        $ngay = $request->input('ngay_hoidong');
+        
+        if (!$ngay) {
+            return response()->json(['error' => 'Vui lòng chọn ngày'], 400);
+        }
+
+        // Lưu vào session
+        session(['temp_ngay_hoidong' => $ngay]);
+
+        return response()->json([
+            'success' => true,
+            'ngay' => $ngay,
+            'message' => 'Đã lưu ngày hội đồng'
+        ]);
+    }
+
 
     /**
      * Export Excel danh sách đề tài của hội đồng

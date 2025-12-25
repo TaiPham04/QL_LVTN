@@ -62,8 +62,13 @@ Route::middleware(['auth', 'admin'])
         
         Route::get('/phanbien', [PhanBienController::class, 'index'])->name('phanbien.index');
         Route::post('/phanbien/store', [PhanBienController::class, 'store'])->name('phanbien.store');
+        Route::get('/phanbien/{nhom_id}/form', [PhanBienController::class, 'form'])->name('phanbien.form');
+        Route::get('/phanbien/export', [PhanBienController::class, 'export'])->name('phanbien.export');
 
         Route::prefix('hoidong')->name('hoidong.')->group(function () {
+            Route::get('/api/get-giangvien', [App\Http\Controllers\HoiDongController::class, 'apiGetGiangVien'])->name('api.get-giangvien');
+            Route::post('/api/save-date', [App\Http\Controllers\HoiDongController::class, 'apiSaveDate'])->name('api.save-date');
+
             Route::get('/', [App\Http\Controllers\HoiDongController::class, 'index'])->name('index');
             Route::get('/create', [App\Http\Controllers\HoiDongController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\HoiDongController::class, 'store'])->name('store');
@@ -75,8 +80,7 @@ Route::middleware(['auth', 'admin'])
             Route::delete('/{id}/phan-cong/{nhom_id}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
             Route::get('/{id}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
 
-            Route::get('/api/get-giangvien', [App\Http\Controllers\HoiDongController::class, 'apiGetGiangVien'])->name('api.get-giangvien');
-            Route::post('/api/save-date', [App\Http\Controllers\HoiDongController::class, 'apiSaveDate'])->name('api.save-date');
+            
         });
 
         Route::prefix('diem')->group(function () {
@@ -162,8 +166,9 @@ Route::middleware(['auth', 'lecturers'])
         });
 
         Route::prefix('tong-ket')->name('tong-ket.')->controller(\App\Http\Controllers\TongKetController::class)->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/export-excel', 'exportExcel')->name('export-excel');
+            Route::get('/', 'index')->name('index');                           // Danh sách hội đồng
+            Route::get('/{hoidong_id}/show', 'show')->name('show');           // Chi tiết hội đồng
+            Route::get('/export-excel', 'exportExcel')->name('export-excel'); // Xuất Excel
         });
         
     });

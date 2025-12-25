@@ -4,13 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 
 class PhanBienController extends Controller
 {
     // 📌 Hiển thị trang phân công phản biện
     public function index(Request $request)
     {
-        // Lấy danh sách đề tài theo NHÓM từ bảng detai
+        // ✅ Lấy tất cả dữ liệu (không filter search ở server)
         $query = DB::table('detai as dt')
             ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
             ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
@@ -29,17 +34,6 @@ class PhanBienController extends Controller
                 'gv_pb.hoten as tengv_phanbien'
             )
             ->whereNotNull('dt.nhom_id');
-
-        // Tìm kiếm theo 1 ô - tìm trong nhóm, mssv, đề tài, gvhd
-        if ($request->filled('search')) {
-            $searchTerm = '%' . $request->search . '%';
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('n.tennhom', 'LIKE', $searchTerm)
-                  ->orWhere('sv.mssv', 'LIKE', $searchTerm)
-                  ->orWhere('n.tendt', 'LIKE', $searchTerm)
-                  ->orWhere('gv_hd.hoten', 'LIKE', $searchTerm);
-            });
-        }
 
         $topics = $query->orderBy('n.tennhom')
             ->orderBy('sv.hoten')
@@ -133,7 +127,99 @@ class PhanBienController extends Controller
                 ->with('warning', "Phân công thành công {$success_count} nhóm. Có " . count($errors) . " lỗi.");
         }
 
-        return redirect()->back();//->with('success', "Phân công thành công cho {$success_count} nhóm!");
+        return redirect()->back();
+    }
+
+    // ✅ THÊM: Xuất Excel danh sách phân công phản biện
+    public function exportExcel(Request $request)
+    {
+        $nhomIds = explode(',', $request->query('nhom_ids', ''));
+        $nhomIds = array_filter($nhomIds); // Loại bỏ phần tử rỗng
+
+        if (empty($nhomIds)) {
+            return back()->with('error', 'Vui lòng chọn ít nhất 1 nhóm để xuất!');
+        }
+
+        // Lấy dữ liệu nhóm được chọn
+        $topics = DB::table('detai as dt')
+            ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
+            ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
+            ->leftJoin('giangvien as gv_hd', 'dt.magv', '=', 'gv_hd.magv')
+            ->leftJoin('phancong_phanbien as pb', 'n.id', '=', 'pb.nhom_id')
+            ->leftJoin('giangvien as gv_pb', 'pb.magv_phanbien', '=', 'gv_pb.magv')
+            ->whereIn('n.id', $nhomIds)
+            ->select(
+                'n.id as nhom_id',
+                'n.tennhom as nhom',
+                'n.tendt',
+                'dt.mssv',
+                'sv.hoten as tensv',
+                'sv.lop',
+                'gv_hd.magv as magv_hd',
+                'gv_hd.hoten as tengv_hd',
+                'pb.magv_phanbien',
+                'gv_pb.hoten as tengv_phanbien'
+            )
+            ->orderBy('n.tennhom')
+            ->orderBy('sv.hoten')
+            ->get();
+
+        // Tạo Spreadsheet
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header
+        $sheet->setCellValue('A1', 'DANH SÁCH PHÂN CÔNG PHẢN BIỆN');
+        $sheet->mergeCells('A1:H1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Tiêu đề cột
+        $headers = ['Nhóm', 'Tên Đề Tài', 'MSSV', 'Tên Sinh Viên', 'Lớp', 'GVHD', 'GV Phản Biện', 'Trạng Thái'];
+        $row = 3;
+        foreach ($headers as $col => $header) {
+            $cell = chr(65 + $col) . $row;
+            $sheet->setCellValue($cell, $header);
+            $sheet->getStyle($cell)->getFont()->setBold(true)->setColor(new Color('FFFFFFFF'));
+            $sheet->getStyle($cell)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF0066CC');
+            $sheet->getStyle($cell)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        // Dữ liệu
+        $row = 4;
+        foreach ($topics as $topic) {
+            $sheet->setCellValue('A' . $row, $topic->nhom);
+            $sheet->setCellValue('B' . $row, $topic->tendt);
+            $sheet->setCellValue('C' . $row, $topic->mssv);
+            $sheet->setCellValue('D' . $row, $topic->tensv);
+            $sheet->setCellValue('E' . $row, $topic->lop);
+            $sheet->setCellValue('F' . $row, $topic->tengv_hd ?? '');
+            $sheet->setCellValue('G' . $row, $topic->tengv_phanbien ?? 'Chưa phân');
+            $sheet->setCellValue('H' . $row, $topic->magv_phanbien ? 'Đã phân' : 'Chưa phân');
+
+            // Căn chỉnh
+            $sheet->getStyle('H' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            $row++;
+        }
+
+        // Độ rộng cột
+        $sheet->getColumnDimension('A')->setWidth(12);
+        $sheet->getColumnDimension('B')->setWidth(30);
+        $sheet->getColumnDimension('C')->setWidth(12);
+        $sheet->getColumnDimension('D')->setWidth(20);
+        $sheet->getColumnDimension('E')->setWidth(10);
+        $sheet->getColumnDimension('F')->setWidth(18);
+        $sheet->getColumnDimension('G')->setWidth(18);
+        $sheet->getColumnDimension('H')->setWidth(12);
+
+        // Export
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'PhanCongPhanBien_' . date('YmdHis') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $writer->save('php://output');
+        exit;
     }
 }
-?>
