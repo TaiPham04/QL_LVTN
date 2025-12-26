@@ -222,4 +222,129 @@ class PhanBienController extends Controller
         $writer->save('php://output');
         exit;
     }
+
+    public function export(Request $request)
+    {
+        try {
+            $nhomIds = explode(',', $request->query('nhom_ids', ''));
+            $nhomIds = array_filter($nhomIds);
+
+            if (empty($nhomIds)) {
+                return back()->with('error', 'Vui lòng chọn ít nhất 1 nhóm để xuất!');
+            }
+
+            // ✅ Lấy danh sách cột HIỂN THỊ
+            $visibleColumnsParam = $request->query('visible_columns', '');
+            $visibleColumns = $visibleColumnsParam ? explode(',', $visibleColumnsParam) : [];
+            
+            \Log::info('Visible columns from request: ' . json_encode($visibleColumns));
+
+            // ✅ Lấy dữ liệu đầy đủ
+            $data = DB::table('detai as dt')
+                ->leftJoin('nhom as n', 'dt.nhom_id', '=', 'n.id')
+                ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
+                ->leftJoin('giangvien as gv_hd', 'dt.magv', '=', 'gv_hd.magv')
+                ->leftJoin('phancong_phanbien as pb', 'n.id', '=', 'pb.nhom_id')
+                ->leftJoin('giangvien as gv_pb', 'pb.magv_phanbien', '=', 'gv_pb.magv')
+                ->whereIn('n.id', $nhomIds)
+                ->select(
+                    'n.tennhom as nhom',
+                    'n.tendt',
+                    'dt.mssv',
+                    'sv.hoten as tensv',
+                    'sv.lop',
+                    'gv_hd.hoten as gvhd',
+                    'gv_pb.hoten as gv_phanbien'
+                )
+                ->orderBy('n.tennhom')
+                ->orderBy('sv.hoten')
+                ->get();
+
+            // ✅ Tạo Excel
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Header
+            $sheet->setCellValue('A1', 'DANH SÁCH PHÂN CÔNG PHẢN BIỆN');
+            $sheet->mergeCells('A1:H1');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            // ✅ Định nghĩa tất cả cột có thể có - TÁCH MSSV VÀ TÊN RIÊNG
+            $allColumns = [
+                'nhom' => ['label' => 'Nhóm', 'width' => 15],
+                'mssv' => ['label' => 'MSSV', 'width' => 15],
+                'tensv' => ['label' => 'Tên Sinh Viên', 'width' => 25],
+                'detai' => ['label' => 'Đề Tài', 'width' => 35],
+                'gvhd' => ['label' => 'GVHD', 'width' => 20],
+                'gvphanbien' => ['label' => 'GV Phản Biện', 'width' => 20]
+            ];
+
+            // ✅ Nếu không có visible_columns, mặc định hiển thị tất cả
+            if (empty($visibleColumns)) {
+                $visibleColumns = array_keys($allColumns);
+            }
+
+            // ✅ Lọc headers theo cột hiển thị
+            $headers = [];
+            foreach ($visibleColumns as $colKey) {
+                if (isset($allColumns[$colKey])) {
+                    $headers[$colKey] = $allColumns[$colKey];
+                }
+            }
+
+            // ✅ Viết tiêu đề cột
+            $col = 'A';
+            foreach ($headers as $key => $colInfo) {
+                $sheet->setCellValue($col . '3', $colInfo['label']);
+                $sheet->getStyle($col . '3')->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FFFFFFFF'));
+                $sheet->getStyle($col . '3')->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FF0066CC');
+                $sheet->getStyle($col . '3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getColumnDimension($col)->setWidth($colInfo['width']);
+                $col++;
+            }
+
+            // ✅ Viết dữ liệu - CHỈ các cột hiển thị - TÁCH MSSV VÀ TÊN
+            $row = 4;
+            foreach ($data as $item) {
+                $col = 'A';
+                foreach ($headers as $key => $colInfo) {
+                    if ($key === 'nhom') {
+                        $sheet->setCellValue($col . $row, $item->nhom ?? '-');
+                    } elseif ($key === 'mssv') {
+                        $sheet->setCellValue($col . $row, $item->mssv ?? '-');
+                    } elseif ($key === 'tensv') {
+                        $sheet->setCellValue($col . $row, $item->tensv ?? '-');
+                    } elseif ($key === 'detai') {
+                        $sheet->setCellValue($col . $row, $item->tendt ?? '-');
+                    } elseif ($key === 'gvhd') {
+                        $sheet->setCellValue($col . $row, $item->gvhd ?? '-');
+                    } elseif ($key === 'gvphanbien') {
+                        $sheet->setCellValue($col . $row, $item->gv_phanbien ?? 'Chưa phân');
+                    }
+                    $col++;
+                }
+                $row++;
+            }
+
+            // Download
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $filename = 'PhanBien_' . now()->format('Ymd') . '.xlsx';
+            $filePath = storage_path('app/exports/' . $filename);
+            
+            if (!is_dir(storage_path('app/exports'))) {
+                mkdir(storage_path('app/exports'), 0755, true);
+            }
+            
+            $writer->save($filePath);
+            
+            return response()->download($filePath)->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            \Log::error('Export error: ' . $e->getMessage());
+            return back()->with('error', 'Lỗi: ' . $e->getMessage());
+        }
+    }
 }

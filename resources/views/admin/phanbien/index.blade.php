@@ -50,7 +50,8 @@
                                         <input type="checkbox" id="checkAll" class="form-check-input">
                                     </th>
                                     <th style="width: 80px;">Nhóm</th>
-                                    <th style="width: 200px;">Sinh viên (MSSV)</th>
+                                    <th style="width: 100px;">MSSV</th>
+                                    <th style="width: 150px;">Tên Sinh Viên</th>
                                     <th>Đề tài</th>
                                     <th style="width: 150px;">GVHD</th>
                                     <th style="width: 150px;">GV Phản biện</th>
@@ -74,7 +75,13 @@
                                     <td>
                                         @foreach($topic->sinhvien as $sv)
                                             <div class="mb-1">
-                                                <small><strong>{{ $sv['mssv'] }}</strong></small><br>
+                                                <small><strong>{{ $sv['mssv'] }}</strong></small>
+                                            </div>
+                                        @endforeach
+                                    </td>
+                                    <td>
+                                        @foreach($topic->sinhvien as $sv)
+                                            <div class="mb-1">
                                                 <small class="text-muted">{{ $sv['tensv'] }}</small>
                                             </div>
                                         @endforeach
@@ -103,7 +110,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">
+                                    <td colspan="7" class="text-center text-muted py-4">
                                         <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                         Chưa có nhóm nào
                                     </td>
@@ -255,14 +262,16 @@ $(document).ready(function() {
             {
                 extend: 'colvis',
                 text: '<i class="bi bi-eye-fill"></i> Hiển thị/Ẩn cột',
-                className: 'btn btn-sm btn-outline-primary'
+                className: 'btn btn-sm btn-outline-primary',
+                columns: ':not(.never)'
             }
         ],
         columnDefs: [
             {
                 targets: 0,  // Checkbox column
                 visible: true,
-                searchable: false
+                searchable: false,
+                className: 'never'
             }
         ],
         paging: false,
@@ -297,13 +306,13 @@ $(document).ready(function() {
             return true; // Không tìm → show all
         }
         
-        // Lấy visibility của cột GVHD (4) và GV Phản biện (5)
-        var gvhdVisible = table.column(4).visible();
-        var gvpbVisible = table.column(5).visible();
+        // Lấy visibility của cột GVHD (5) và GV Phản biện (6)
+        var gvhdVisible = table.column(5).visible();
+        var gvpbVisible = table.column(6).visible();
         
         // Lấy dữ liệu từ data array (text của cell)
-        var gvhdData = data[4] ? data[4].toLowerCase() : '';
-        var gvpbData = data[5] ? data[5].toLowerCase() : '';
+        var gvhdData = data[5] ? data[5].toLowerCase() : '';
+        var gvpbData = data[6] ? data[6].toLowerCase() : '';
         
         // Nếu cột GVHD visible → tìm trong GVHD
         if (gvhdVisible && gvhdData.includes(searchValue)) {
@@ -315,12 +324,13 @@ $(document).ready(function() {
             return true;
         }
         
-        // Tìm trong các cột khác (Nhóm, MSSV, Đề tài)
+        // Tìm trong các cột khác (Nhóm, MSSV, Tên, Đề tài)
         var nhomData = data[1] ? data[1].toLowerCase() : '';
-        var svData = data[2] ? data[2].toLowerCase() : '';
-        var dtData = data[3] ? data[3].toLowerCase() : '';
+        var mssvData = data[2] ? data[2].toLowerCase() : '';
+        var tensvData = data[3] ? data[3].toLowerCase() : '';
+        var dtData = data[4] ? data[4].toLowerCase() : '';
         
-        if (nhomData.includes(searchValue) || svData.includes(searchValue) || dtData.includes(searchValue)) {
+        if (nhomData.includes(searchValue) || mssvData.includes(searchValue) || tensvData.includes(searchValue) || dtData.includes(searchValue)) {
             return true;
         }
         
@@ -396,7 +406,7 @@ function updateSelectedCount() {
     document.getElementById('selectedCount').textContent = count;
 }
 
-// ✅ Xuất Excel
+// ✅ Xuất Excel - CHỈ các cột hiển thị
 function exportExcel(e) {
     e.preventDefault();
     
@@ -410,8 +420,29 @@ function exportExcel(e) {
     // Lấy danh sách nhóm được chọn
     const selectedIds = Array.from(selectedTopics).map(chk => chk.value).join(',');
     
+    // ✅ Lấy danh sách cột HIỂN THỊ
+    const table = $('#phanBienTable').DataTable();
+    const visibleColumns = [];
+    
+    // Danh sách tất cả các cột (theo thứ tự trong table) - BỎ CHECKBOX
+    const columnNames = ['nhom', 'mssv', 'tensv', 'detai', 'gvhd', 'gvphanbien'];    
+    
+    // Kiểm tra từng cột xem visible hay không (bắt đầu từ index 1 vì bỏ checkbox ở index 0)
+    columnNames.forEach((colName, idx) => {
+        const colIndex = idx + 1; // +1 vì checkbox là cột 0
+        
+        if (table.column(colIndex).visible()) {
+            visibleColumns.push(colName);
+        }
+    });
+    
+    console.log('Visible columns:', visibleColumns);
+    
     // Redirect tới route export với parameters
-    window.location.href = `{{ route('admin.phanbien.export') }}?nhom_ids=${selectedIds}`;
+    let url = `{{ route('admin.phanbien.export') }}?nhom_ids=${selectedIds}&visible_columns=${visibleColumns.join(',')}`;
+    
+    console.log('Export URL:', url);
+    window.location.href = url;
 }
 
 // Kiểm tra trước khi submit
