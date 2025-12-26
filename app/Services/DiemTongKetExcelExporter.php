@@ -37,8 +37,10 @@ class DiemTongKetExcelExporter
             }
         }
         
-        $sheet->setCellValue('A' . $row, 'Ngày xuất: ' . date('d/m/Y H:i:s'));
+        // ✅ FIX: Bỏ time, chỉ giữ ngày và căn giữa
+        $sheet->setCellValue('A' . $row, 'Ngày xuất: ' . date('d/m/Y'));
         $sheet->mergeCells('A' . $row . ':J' . $row);
+        $sheet->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         
         // ✅ Headers bảng
         $headerRow = $row + 1;
@@ -66,7 +68,7 @@ class DiemTongKetExcelExporter
             $style->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
         }
         
-        // ✅ Dữ liệu
+        // ✅ Dữ liệu (bỏ dòng trắng, data bắt đầu ngay sau header)
         $dataRow = $headerRow + 1;
         foreach ($diemData as $item) {
             // ✅ Convert object to array

@@ -90,6 +90,7 @@ class DiemGiuaKyController extends Controller
                 $diem = $validated['diem'][$mssv] ?? null;
 
                 if ($diem !== null && $diem !== '') {
+                    // ✅ FIX: Bỏ 'updated_at' - cột này không tồn tại trong bảng
                     DB::table('diem_giuaky')->updateOrInsert(
                         [
                             'mssv' => $mssv,
@@ -99,8 +100,7 @@ class DiemGiuaKyController extends Controller
                             'diem' => $diem,
                             'ketqua' => $validated['ketqua'][$mssv] ?? 'chua_danh_gia',
                             'nhanxet' => $validated['nhanxet'][$mssv] ?? '',
-                            'created_at' => now(),
-                            'updated_at' => now()
+                            'created_at' => now()
                         ]
                     );
                 }
