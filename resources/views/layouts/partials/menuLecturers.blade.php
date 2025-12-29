@@ -55,10 +55,6 @@
                class="{{ request()->routeIs('lecturers.cham-diem.hoi-dong.*') ? 'active' : '' }}">
                 <i class="fa fa-star me-2"></i> Hội Đồng
             </a>
-            <a href="{{ route('lecturers.tong-ket.index') }}" 
-               class="{{ request()->routeIs('lecturers.tong-ket.*') ? 'active' : '' }}">
-                <i class="fa fa-chart-line me-2"></i> Tổng Kết
-            </a>
         </div>
     </li>
 

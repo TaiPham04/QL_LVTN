@@ -18,13 +18,21 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
-                <label for="status" class="form-label fw-bold">Trạng thái đề tài:</label>
-                <select name="status" id="status" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Tất cả --</option>
-                    <option value="co_detai" {{ request('status') == 'co_detai' ? 'selected' : '' }}>✅ Có đề tài</option>
-                    <option value="chua_detai" {{ request('status') == 'chua_detai' ? 'selected' : '' }}>❌ Chưa có đề tài</option>
-                </select>
+            <div class="col-md-4">
+                <label for="search" class="form-label fw-bold">Tìm kiếm:</label>
+                <input type="text" name="search" id="search" class="form-control" 
+                       placeholder="Nhập MSSV, tên SV, tên đề tài..." 
+                       value="{{ request('search') }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Tìm kiếm
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ route('admin.topics.index') }}" class="btn btn-secondary w-100">
+                    <i class="bi bi-arrow-clockwise"></i> Làm mới
+                </a>
             </div>
         </div>
     </form>

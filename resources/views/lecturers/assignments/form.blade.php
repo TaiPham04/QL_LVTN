@@ -33,12 +33,12 @@
                         <label class="form-label fw-semibold">
                             Mã Nhóm <span class="text-danger">*</span>
                         </label>
-                        <input type="text" 
-                               id="nhomCode" 
-                               class="form-control" 
-                               value="VD: {{ session('user')->magv }}TH2805"
-                               readonly
-                               style="background-color: #f0f0f0; font-weight: bold; color: #0066cc;">
+                        <input type="text"
+                                id="nhomCode"
+                                name="nhom"
+                                class="form-control"
+                                value="VD: {{ session('user')->magv }}TH2805"
+                                readonly>
                         <small class="text-muted">
                             <i class="fas fa-lock me-1"></i>Mã nhóm tự động (không thể chỉnh sửa)
                         </small>
@@ -82,35 +82,37 @@
                             Chọn Sinh Viên <span class="text-danger">*</span>
                         </label>
                         
-                        @if(isset($availableStudents) && $availableStudents->count() > 0)
-                            <div class="student-select-box">
-                                @foreach($availableStudents as $student)
-                                    <div class="form-check student-item">
-                                        <input class="form-check-input student-checkbox" 
-                                               type="checkbox" 
-                                               name="sinhvien[]" 
-                                               value="{{ $student->mssv }}" 
-                                               id="student_{{ $student->mssv }}"
-                                               data-mssv="{{ $student->mssv }}">
-                                        <label class="form-check-label" for="student_{{ $student->mssv }}">
-                                            <strong>{{ $student->mssv }}</strong> - {{ $student->hoten }}
-                                            @if($student->lop)
-                                                <span class="text-muted">({{ $student->lop }})</span>
-                                            @endif
-                                        </label>
-                                    </div>
-                                @endforeach
-                            </div>
-                            <small class="text-muted">
-                                <i class="fas fa-info-circle"></i> 
-                                Chọn 1-2 sinh viên để tạo nhóm. Mã nhóm sẽ dùng MSSV của <strong>sinh viên đầu tiên</strong>.
-                            </small>
-                        @else
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Tất cả sinh viên đã được phân nhóm hoặc không có sinh viên được phân công
-                            </div>
-                        @endif
+                        <div id="availableStudentsContainer">
+                            @if(isset($availableStudents) && $availableStudents->count() > 0)
+                                <div class="student-select-box">
+                                    @foreach($availableStudents as $student)
+                                        <div class="form-check student-item">
+                                            <input class="form-check-input student-checkbox" 
+                                                   type="checkbox" 
+                                                   name="sinhvien[]" 
+                                                   value="{{ $student->mssv }}" 
+                                                   id="student_{{ $student->mssv }}"
+                                                   data-mssv="{{ $student->mssv }}">
+                                            <label class="form-check-label" for="student_{{ $student->mssv }}">
+                                                <strong>{{ $student->mssv }}</strong> - {{ $student->hoten }}
+                                                @if($student->lop)
+                                                    <span class="text-muted">({{ $student->lop }})</span>
+                                                @endif
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Chọn 1-2 sinh viên để tạo nhóm. Mã nhóm sẽ dùng MSSV của <strong>sinh viên đầu tiên</strong>.
+                                </small>
+                            @else
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Tất cả sinh viên đã được phân nhóm hoặc không có sinh viên được phân công
+                                </div>
+                            @endif
+                        </div>
                         @error('sinhvien')
                             <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
@@ -132,80 +134,87 @@
 
     <!-- DANH SÁCH SINH VIÊN ĐÃ CÓ NHÓM -->
     @if(isset($students) && $students->count() > 0)
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
-                <h6 class="mb-0"><i class="fas fa-list me-2"></i>Danh Sách Sinh Viên</h6>
+    <div class="card border-0 shadow-sm mt-4">
+        <!-- HEADER -->
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <i class="fas fa-users me-2"></i>Danh sách sinh viên
+            </h6>
+
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-danger btn-sm" id="btnDeleteStudents">
+                    <i class="fas fa-trash me-1"></i>Xóa
+                </button>
+
                 <button type="button" class="btn btn-success btn-sm" id="btnSaveStatus">
-                    <i class="fas fa-save me-1"></i>Lưu Thay Đổi
+                    <i class="fas fa-save me-1"></i>Lưu thay đổi
                 </button>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 10%">MSSV</th>
-                                <th style="width: 18%">Họ Tên</th>
-                                <th style="width: 10%">Lớp</th>
-                                <th style="width: 15%">Mã Nhóm</th>
-                                <th style="width: 35%">Đề Tài</th>
-                                <th style="width: 12%">Trạng Thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($students as $student)
-                                <tr>
-                                    <td><strong>{{ $student->mssv }}</strong></td>
-                                    <td>{{ $student->hoten }}</td>
-                                    <td>{{ $student->lop ?? 'N/A' }}</td>
-                                    <td>
-                                        @if($student->nhom)
-                                            <span class="badge bg-success" title="{{ $student->nhom }}">
-                                                {{ $student->nhom }}
-                                            </span>
-                                        @else
-                                            <span class="badge bg-secondary">Chưa có nhóm</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($student->tendt)
-                                            <small class="d-block">
-                                                {{ $student->tendt }}
-                                            </small>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($student->nhom)
-                                            <select class="form-select form-select-sm status-select" 
-                                                    data-nhom="{{ $student->nhom }}"
-                                                    style="width: 150px;">
-                                                <option value="chua_bat_dau" {{ $student->trangthai == 'chua_bat_dau' ? 'selected' : '' }}>
-                                                    Chưa bắt đầu
-                                                </option>
-                                                <option value="dang_thuc_hien" {{ $student->trangthai == 'dang_thuc_hien' ? 'selected' : '' }}>
-                                                    Đang thực hiện
-                                                </option>
-                                                <option value="hoan_thanh" {{ $student->trangthai == 'hoan_thanh' ? 'selected' : '' }}>
-                                                    Hoàn thành
-                                                </option>
-                                                <option value="dinh_chi" {{ $student->trangthai == 'dinh_chi' ? 'selected' : '' }}>
-                                                    Đình chỉ
-                                                </option>
-                                            </select>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+        </div>
+
+        <!-- BODY -->
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width:5%">
+                                <input type="checkbox" id="selectAllCheckbox" class="form-check-input">
+                            </th>
+                            <th>MSSV</th>
+                            <th>Họ tên</th>
+                            <th>Lớp</th>
+                            <th>Nhóm</th>
+                            <th>Đề tài</th>
+                            <th style="width:160px">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($students as $student)
+                        <tr>
+                            <td class="text-center">
+                                <input type="checkbox"
+                                    class="form-check-input student-checkbox"
+                                    data-madt="{{ $student->detai_id }}"
+                                    data-mssv="{{ $student->mssv }}">
+                            </td>
+                            <td><strong>{{ $student->mssv }}</strong></td>
+                            <td>{{ $student->hoten }}</td>
+                            <td>{{ $student->lop ?? '-' }}</td>
+                            <td>
+                                @if($student->nhom)
+                                    <span class="badge bg-success">{{ $student->nhom }}</span>
+                                @else
+                                    <span class="badge bg-secondary">Chưa có</span>
+                                @endif
+                            </td>
+                            <td class="text-wrap" style="max-width: 320px">
+                                {{ $student->tendt ?? '-' }}
+                            </td>
+                            <td>
+                                @if($student->nhom)
+                                    <select class="form-select form-select-sm status-select"
+                                            data-detai-id="{{ $student->detai_id }}"
+                                            data-mssv="{{ $student->mssv }}"
+                                            data-old-status="{{ $student->trangthai }}">
+                                        <option value="chua_bat_dau" {{ $student->trangthai=='chua_bat_dau'?'selected':'' }}>Chưa bắt đầu</option>
+                                        <option value="dang_thuc_hien" {{ $student->trangthai=='dang_thuc_hien'?'selected':'' }}>Đang làm</option>
+                                        <option value="hoan_thanh" {{ $student->trangthai=='hoan_thanh'?'selected':'' }}>Hoàn thành</option>
+                                        <option value="dinh_chi" {{ $student->trangthai=='dinh_chi'?'selected':'' }}>Đình chỉ</option>
+                                    </select>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </div>
+    </div>
     @endif
+
 </div>
 
 <style>
@@ -355,9 +364,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.student-checkbox');
     const nhomCodeInput = document.getElementById('nhomCode');
     const magv = '{{ session("user")->magv }}';
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    
+    // Select All checkbox
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            checkboxes.forEach(cb => {
+                if (cb.dataset.madt) { // Chỉ select những checkbox trong bảng (có data-madt)
+                    cb.checked = this.checked;
+                }
+            });
+        });
+    }
+    
+    // Xóa sinh viên khỏi nhóm
+    const btnDeleteStudents = document.getElementById('btnDeleteStudents');
+    if (btnDeleteStudents) {
+        btnDeleteStudents.addEventListener('click', function() {
+            const checkedBoxes = document.querySelectorAll('input[type="checkbox"][data-madt]:checked');
+            
+            if (checkedBoxes.length === 0) {
+                alert('Vui lòng chọn sinh viên cần xóa!');
+                return;
+            }
+            
+            if (!confirm('Bạn có chắc muốn xóa các sinh viên được chọn khỏi nhóm?\nHành động này không thể hoàn tác!')) {
+                return;
+            }
+            
+            const detaiIds = [];
+            checkedBoxes.forEach(cb => {
+                detaiIds.push(parseInt(cb.dataset.madt));
+            });
+            
+            const originalText = btnDeleteStudents.innerHTML;
+            btnDeleteStudents.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Đang xóa...';
+            btnDeleteStudents.disabled = true;
+            
+            fetch('{{ route("lecturers.assignments.delete-students") }}', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    detai_ids: detaiIds
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success || data.message.includes('thành công')) {
+                    showToast('success', data.message);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast('warning', data.message);
+                    btnDeleteStudents.innerHTML = originalText;
+                    btnDeleteStudents.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'Có lỗi xảy ra: ' + error.message);
+                btnDeleteStudents.innerHTML = originalText;
+                btnDeleteStudents.disabled = false;
+            });
+        });
+    }
     
     function generateNhomCode() {
-        const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
+        const checkedBoxes = document.querySelectorAll('input[type="checkbox"][name="sinhvien[]"]:checked');
         
         if (checkedBoxes.length === 0) {
             nhomCodeInput.value = 'VD: ' + magv + 'TH2805';
@@ -372,9 +455,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    checkboxes.forEach(checkbox => {
+    const formCheckboxes = document.querySelectorAll('input[type="checkbox"][name="sinhvien[]"]');
+    formCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
-            const checkedCount = document.querySelectorAll('.student-checkbox:checked').length;
+            const checkedCount = document.querySelectorAll('input[type="checkbox"][name="sinhvien[]"]:checked').length;
             
             if (checkedCount > 2) {
                 this.checked = false;
@@ -390,22 +474,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const btnSaveStatus = document.getElementById('btnSaveStatus');
     const statusSelects = document.querySelectorAll('.status-select');
+    statusSelects.forEach(select => {
+        select.addEventListener('change', function () {
+            this.dataset.changed = '1';
+        });
+    });
     
     if (btnSaveStatus) {
         btnSaveStatus.addEventListener('click', function() {
             const changes = [];
             
             statusSelects.forEach(select => {
-                const nhom = select.getAttribute('data-nhom');
+                const detaiId = select.getAttribute('data-detai-id');
+                const mssv = select.getAttribute('data-mssv');
                 const newStatus = select.value;
-                const oldStatus = select.getAttribute('data-old-status') || select.value;
                 
-                if (newStatus !== oldStatus) {
+                if (select.dataset.changed === '1') {
                     changes.push({
-                        nhom: nhom,
+                        detai_id: detaiId,
+                        mssv: mssv,
                         trangthai: newStatus
                     });
                 }
+
             });
             
             if (changes.length === 0) {
@@ -437,9 +528,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     showToast('success', 'Lưu thay đổi thành công!');
+                    changes.forEach(change => {
+                        const select = document.querySelector(
+                            `.status-select[data-detai-id="${change.detai_id}"]`
+                        );
+                        if (select) {
+                            select.dataset.changed = '0';
+                            select.setAttribute('data-old-status', change.trangthai);
+                        }
+                    });
                     
                     changes.forEach(change => {
-                        const select = document.querySelector(`.status-select[data-nhom="${change.nhom}"]`);
+                        const select = document.querySelector(`.status-select[data-detai-id="${change.detai_id}"]`);
                         if (select) {
                             select.setAttribute('data-old-status', change.trangthai);
                         }
@@ -462,20 +562,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        statusSelects.forEach(select => {
-            select.setAttribute('data-old-status', select.value);
-        });
     }
 });
 
 function showToast(type, message) {
     const toastContainer = document.querySelector('.toast-container') || createToastContainer();
     
-    const bgColor = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
-    const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+    const bgColor = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
+    const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+    const textColor = type === 'warning' ? 'text-dark' : 'text-white';
     
     const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white ${bgColor} border-0`;
+    toast.className = `toast align-items-center ${textColor} ${bgColor} border-0`;
     toast.setAttribute('role', 'alert');
     toast.innerHTML = `
         <div class="d-flex">
@@ -483,7 +581,7 @@ function showToast(type, message) {
                 <i class="fas ${icon} me-2"></i>
                 ${message}
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            <button type="button" class="btn-close ${type === 'warning' ? 'btn-close-black' : 'btn-close-white'} me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
     `;
     

@@ -21,27 +21,8 @@ class DiemTongKetController extends Controller
         
         \Log::info('hoiDongs count: ' . $hoiDongs->count());
         
-        $query = DB::table('hoidong_chamdiem as hc')
-            ->join('hoidong as hd', 'hc.hoidong_id', '=', 'hd.id')
-            ->join('nhom as n', 'hc.nhom_id', '=', 'n.id')
-            ->join('sinhvien as sv', 'hc.mssv', '=', 'sv.mssv')
-            ->select(
-                'hc.id',
-                'hd.id as hoidong_id',
-                'hd.mahd',
-                'hd.tenhd',
-                'hc.nhom_id',
-                'hc.mssv',
-                'hc.diem_chu_tich',
-                'hc.diem_thu_ky',
-                'hc.diem_thanh_vien_1',
-                'hc.diem_thanh_vien_2',
-                'hc.diem_tong',
-                'n.tennhom',
-                'n.tendt',
-                'sv.hoten as ten_sinh_vien',
-                'sv.lop'
-            );
+        // ✅ Lấy tất cả nhóm được phân công (từ hoidong_detai)
+        $query = $this->buildDiemQuery();
         
         // Filter theo hội đồng
         if ($request->filled('hoidong_id')) {
@@ -49,13 +30,13 @@ class DiemTongKetController extends Controller
             $query->where('hd.mahd', $request->hoidong_id);
         }
         
-        // Tìm kiếm Tên nhóm / MSSV (sử dụng LIKE - wildcard)
+        // Tìm kiếm Tên nhóm / MSSV
         if ($request->filled('nhom_id')) {
             $search = $request->nhom_id;
             \Log::info('Search by nhom_id (LIKE): ' . $search);
             $query->where(function($q) use ($search) {
-                $q->where('n.tennhom', 'LIKE', '%' . $search . '%')  // Tìm theo tên nhóm
-                  ->orWhere('sv.mssv', 'LIKE', '%' . $search . '%');  // Hoặc tìm theo MSSV
+                $q->where('n.tennhom', 'LIKE', '%' . $search . '%')
+                  ->orWhere('dt.mssv', 'LIKE', '%' . $search . '%');
             });
         }
         
@@ -63,25 +44,76 @@ class DiemTongKetController extends Controller
         
         $diemData = $query->distinct()
             ->orderBy('hd.mahd')
-            ->orderBy('hc.nhom_id')
+            ->orderBy('hdt.thu_tu')
             ->get();
         
         \Log::info('diemData count: ' . $diemData->count());
-        \Log::info('SQL Query: ' . $query->toSql());
-        \Log::info('SQL Bindings: ' . json_encode($query->getBindings()));
-        if ($diemData->count() > 0) {
-            \Log::info('First record: ' . json_encode($diemData->first()));
-        }
         
         // Xử lý dữ liệu
         $diem = $this->processScoreData($diemData, $loaiDiem);
         
         \Log::info('Final diem count: ' . $diem->count());
-        if ($diem->count() > 0) {
-            \Log::info('First processed item: ' . json_encode($diem->first()));
-        }
         
         return view('admin.diem-tong.index', compact('diem', 'hoiDongs', 'loaiDiem'));
+    }
+    
+    // ✅ Build query chung cho cả index và export
+    private function buildDiemQuery()
+    {
+        return DB::table('hoidong_detai as hdt')
+            ->join('hoidong as hd', 'hdt.hoidong_id', '=', 'hd.id')
+            ->join('nhom as n', 'hdt.nhom_id', '=', 'n.id')
+            ->leftJoin('detai as dt', 'n.id', '=', 'dt.nhom_id')
+            ->leftJoin('sinhvien as sv', 'dt.mssv', '=', 'sv.mssv')
+            ->leftJoin('hoidong_chamdiem as hc', function($join) {
+                $join->on('hdt.hoidong_id', '=', 'hc.hoidong_id')
+                     ->on('hdt.nhom_id', '=', 'hc.nhom_id');
+            })
+            // ✅ JOIN lấy điểm hướng dẫn
+            ->leftJoin('phieu_cham_diem as pcd_hd', function($join) {
+                $join->on('n.id', '=', 'pcd_hd.nhom_id')
+                     ->where('pcd_hd.loai_phieu', '=', 'huong_dan');
+            })
+            ->leftJoin('diem_sinh_vien as dsv_hd', function($join) {
+                $join->on('pcd_hd.id', '=', 'dsv_hd.phieu_cham_id')
+                     ->on('dt.mssv', '=', 'dsv_hd.mssv');
+            })
+            // ✅ JOIN lấy điểm phản biện
+            ->leftJoin('phieu_cham_diem as pcd_pb', function($join) {
+                $join->on('n.id', '=', 'pcd_pb.nhom_id')
+                     ->where('pcd_pb.loai_phieu', '=', 'phan_bien');
+            })
+            ->leftJoin('diem_sinh_vien as dsv_pb', function($join) {
+                $join->on('pcd_pb.id', '=', 'dsv_pb.phieu_cham_id')
+                     ->on('dt.mssv', '=', 'dsv_pb.mssv');
+            })
+            // ✅ JOIN lấy tên GVHD
+            ->leftJoin('giangvien as gv_hd', 'dt.magv', '=', 'gv_hd.magv')
+            // ✅ JOIN lấy tên GVPB
+            ->leftJoin('phancong_phanbien as ppb', 'n.id', '=', 'ppb.nhom_id')
+            ->leftJoin('giangvien as gv_pb', 'ppb.magv_phanbien', '=', 'gv_pb.magv')
+            ->select(
+                'hdt.hoidong_id',
+                'hd.id as hd_id',
+                'hd.mahd',
+                'hd.tenhd',
+                'hdt.nhom_id',
+                'hdt.thu_tu as ttbc',
+                'n.tennhom',
+                'n.tendt',
+                DB::raw('COALESCE(dt.mssv, "") as mssv'),
+                DB::raw('COALESCE(sv.hoten, "") as ten_sinh_vien'),
+                DB::raw('COALESCE(sv.lop, "") as lop'),
+                DB::raw('COALESCE(hc.diem_chu_tich, 0) as diem_chu_tich'),
+                DB::raw('COALESCE(hc.diem_thu_ky, 0) as diem_thu_ky'),
+                DB::raw('COALESCE(hc.diem_thanh_vien_1, 0) as diem_thanh_vien_1'),
+                DB::raw('COALESCE(hc.diem_thanh_vien_2, 0) as diem_thanh_vien_2'),
+                DB::raw('COALESCE(hc.diem_tong, 0) as diem_tong'),
+                DB::raw('COALESCE(dsv_hd.diem_tong, 0) as diem_hd'),
+                DB::raw('COALESCE(dsv_pb.diem_tong, 0) as diem_pb'),
+                DB::raw('COALESCE(gv_hd.hoten, "-") as ten_gvhd'),
+                DB::raw('COALESCE(gv_pb.hoten, "-") as ten_gvpb')
+            );
     }
     
     // Xử lý dữ liệu điểm
@@ -102,10 +134,15 @@ class DiemTongKetController extends Controller
                     'mssv' => $item->mssv,
                     'ten_sinh_vien' => $item->ten_sinh_vien,
                     'lop' => $item->lop,
-                    'diem_hd' => round($item->diem_chu_tich ?? 0, 2),
-                    'diem_pb' => round($item->diem_thu_ky ?? 0, 2),
-                    'diem_gv' => round($item->diem_thanh_vien_1 ?? 0, 2),
-                    'diem_tong' => round($item->diem_tong ?? 0, 2),
+                    // ✅ Lấy ttbc từ database
+                    'ttbc' => intval($item->ttbc),
+                    'diem_hd' => round(floatval($item->diem_hd ?? 0), 2),
+                    'diem_pb' => round(floatval($item->diem_pb ?? 0), 2),
+                    'ten_gvhd' => $item->ten_gvhd ?? '-',
+                    'ten_gvpb' => $item->ten_gvpb ?? '-',
+                    // Giữ lại
+                    'diem_gv' => round(floatval($item->diem_thanh_vien_1 ?? 0), 2),
+                    'diem_tong' => round(floatval($item->diem_tong ?? 0), 2),
                 ];
             }
         }
@@ -113,7 +150,7 @@ class DiemTongKetController extends Controller
         return collect($processed)->values();
     }
     
-    // Xuất Excel
+    // ✅ Xuất Excel - SỬA LẠI
     public function exportExcel(Request $request)
     {
         \Log::info('=== exportExcel CALLED ===');
@@ -121,78 +158,43 @@ class DiemTongKetController extends Controller
         
         $hoiDongId = $request->hoidong_id;
         $nhomId = $request->nhom_id;
-        $loaiDiem = $request->loai_diem ?? 'all';
         
-        $query = DB::table('hoidong_chamdiem as hc')
-            ->join('hoidong as hd', 'hc.hoidong_id', '=', 'hd.id')
-            ->join('nhom as n', 'hc.nhom_id', '=', 'n.id')
-            ->join('sinhvien as sv', 'hc.mssv', '=', 'sv.mssv')
-            ->select(
-                'hc.id',
-                'hd.mahd',
-                'hd.tenhd',
-                'hc.nhom_id',
-                'hc.mssv',
-                'hc.diem_chu_tich',
-                'hc.diem_thu_ky',
-                'hc.diem_thanh_vien_1',
-                'hc.diem_thanh_vien_2',
-                'hc.diem_tong',
-                'n.tennhom',
-                'n.tendt',
-                'sv.hoten as ten_sinh_vien',
-                'sv.lop'
-            );
+        // ✅ Sử dụng query chung
+        $query = $this->buildDiemQuery();
         
+        // Filter theo hội đồng
         if ($hoiDongId && $hoiDongId !== '') {
             $query->where('hd.mahd', $hoiDongId);
         }
         
-        // Tìm kiếm Tên nhóm / MSSV (sử dụng LIKE - wildcard)
+        // Tìm kiếm Tên nhóm / MSSV
         if ($nhomId && $nhomId !== '') {
             $query->where(function($q) use ($nhomId) {
-                $q->where('n.tennhom', 'LIKE', '%' . $nhomId . '%')  // Tìm theo tên nhóm
-                  ->orWhere('sv.mssv', 'LIKE', '%' . $nhomId . '%');  // Hoặc tìm theo MSSV
+                $q->where('n.tennhom', 'LIKE', '%' . $nhomId . '%')
+                  ->orWhere('dt.mssv', 'LIKE', '%' . $nhomId . '%');
             });
         }
         
         $diemData = $query->distinct()
             ->orderBy('hd.mahd')
-            ->orderBy('hc.nhom_id')
+            ->orderBy('hdt.thu_tu')
             ->get();
         
         \Log::info('Export diemData count: ' . $diemData->count());
         
-        // Convert dữ liệu
-        $processedDiem = [];
-        foreach ($diemData as $item) {
+        // Xử lý dữ liệu
+        $processedDiem = $this->processScoreData($diemData, 'all');
+        
+        \Log::info('Processed diem count: ' . $processedDiem->count());
+        
+        foreach ($processedDiem as $item) {
             \Log::info('Export item: ' . json_encode($item));
-            
-            $key = $item->nhom_id . '_' . $item->mssv;
-            if (!isset($processedDiem[$key])) {
-                $processedDiem[$key] = [
-                    'mahd' => $item->mahd,
-                    'tenhd' => $item->tenhd,
-                    'nhom_id' => $item->nhom_id,
-                    'tennhom' => $item->tennhom,
-                    'tendt' => $item->tendt,
-                    'mssv' => $item->mssv,
-                    'ten_sinh_vien' => $item->ten_sinh_vien,
-                    'lop' => $item->lop,
-                    'diem_hd' => round($item->diem_chu_tich ?? 0, 2),
-                    'diem_pb' => round($item->diem_thu_ky ?? 0, 2),
-                    'diem_gv' => round($item->diem_thanh_vien_1 ?? 0, 2),
-                    'diem_tong' => round($item->diem_tong ?? 0, 2),
-                ];
-                
-                \Log::info('Row ' . ($key) . ' - lop: ' . $item->lop . ', diem_hd: ' . ($processedDiem[$key]['diem_hd'] ?? 'NULL'));
-            }
         }
         
         $hoiDong = HoiDong::where('mahd', $hoiDongId)->first();
         
         $exporter = new DiemTongKetExcelExporter();
-        return $exporter->export(collect($processedDiem)->values(), $hoiDong);
+        return $exporter->export($processedDiem, $hoiDong);
     }
 }
 ?>

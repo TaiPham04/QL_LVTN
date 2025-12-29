@@ -9,7 +9,9 @@ use App\Http\Controllers\{
     PhanBienController,
     AdminAssignmentController,
     LecturerAssignmentsController,
-    DiemTongKetController
+    DiemTongKetController,
+    AdminTongKetController,
+    BangTongKetController
 };
 
 /*
@@ -58,6 +60,13 @@ Route::middleware(['auth', 'admin'])
             Route::get('/form', [AdminAssignmentController::class, 'form'])->name('form');
             Route::post('/store', [AdminAssignmentController::class, 'store'])->name('store');
             Route::delete('/{mssv}', [AdminAssignmentController::class, 'destroy'])->name('destroy');
+            Route::get('/{nhom_id}', [LecturerAssignmentsController::class, 'show'])->name('show');
+            Route::get('/{nhom_id}/edit', [LecturerAssignmentsController::class, 'edit'])->name('edit');
+            Route::put('/{nhom_id}', [LecturerAssignmentsController::class, 'update'])->name('update');
+            Route::delete('/{nhom_id}', [LecturerAssignmentsController::class, 'destroy'])->name('destroy');
+            Route::post('/update-all-status', [LecturerAssignmentsController::class, 'updateAllStatus'])->name('update-all-status');
+            Route::post('/{nhom_id}/update-status', [LecturerAssignmentsController::class, 'updateStatus'])->name('updateStatus');
+            Route::post('/delete-students', [LecturerAssignmentsController::class, 'deleteStudents'])->name('delete-students');
         });
         
         Route::get('/phanbien', [PhanBienController::class, 'index'])->name('phanbien.index');
@@ -79,8 +88,18 @@ Route::middleware(['auth', 'admin'])
             Route::post('/{id}/phan-cong', [App\Http\Controllers\HoiDongController::class, 'phanCongStore'])->name('phancong.store');
             Route::delete('/{id}/phan-cong/{nhom_id}', [App\Http\Controllers\HoiDongController::class, 'phanCongDelete'])->name('phancong.delete');
             Route::get('/{id}/export-excel', [App\Http\Controllers\HoiDongController::class, 'exportExcel'])->name('export.excel');
+        });
 
-            
+        // ✅ ĐIỂM TỔNG KẾT (Quản Trị Viên) - FIX: Bỏ 'admin/' ở prefix
+        Route::prefix('tong-ket')->name('tong-ket.')->group(function () {
+            Route::get('/', [AdminTongKetController::class, 'index'])->name('index');
+            Route::get('/export-excel', [AdminTongKetController::class, 'exportExcel'])->name('export-excel');
+            Route::get('/{hoidong_id}', [AdminTongKetController::class, 'show'])->name('show');
+        });
+
+        Route::prefix('bang-tong-ket')->name('bang-tong-ket.')->group(function () {
+            Route::get('/', [BangTongKetController::class, 'index'])->name('index');
+            Route::get('/export', [BangTongKetController::class, 'export'])->name('export');
         });
 
         Route::prefix('diem')->group(function () {
@@ -120,6 +139,10 @@ Route::middleware(['auth', 'lecturers'])
             Route::delete('/{nhom_id}', [LecturerAssignmentsController::class, 'destroy'])->name('destroy');
             Route::post('/update-all-status', [LecturerAssignmentsController::class, 'updateAllStatus'])->name('update-all-status');
             Route::post('/{nhom_id}/update-status', [LecturerAssignmentsController::class, 'updateStatus'])->name('updateStatus');
+            Route::post('/delete-students', [LecturerAssignmentsController::class, 'deleteStudents'])->name('delete-students');
+            
+            Route::post('/merge-group',[LecturerAssignmentsController::class, 'mergeGroup'])->name('merge');
+            
         });
 
         // Chấm điểm hướng dẫn
@@ -163,12 +186,6 @@ Route::middleware(['auth', 'lecturers'])
         Route::prefix('profile')->name('profile.')->controller(LecturerController::class)->group(function () {
             Route::get('/edit/{magv}', 'edit')->name('edit');
             Route::post('/update/{magv}', 'update')->name('update');
-        });
-
-        Route::prefix('tong-ket')->name('tong-ket.')->controller(\App\Http\Controllers\TongKetController::class)->group(function () {
-            Route::get('/', 'index')->name('index');                           // Danh sách hội đồng
-            Route::get('/{hoidong_id}/show', 'show')->name('show');           // Chi tiết hội đồng
-            Route::get('/export-excel', 'exportExcel')->name('export-excel'); // Xuất Excel
         });
         
     });

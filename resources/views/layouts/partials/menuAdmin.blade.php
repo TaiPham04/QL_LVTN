@@ -61,11 +61,27 @@
         </a>
     </div>
 
-    <a href="{{ route('admin.diem.index') }}" class="{{ request()->routeIs('admin.diem.*') ? 'active' : '' }}">
-        <i class="fa fa-chart-bar me-2"></i> Bảng Điểm
+    <!-- Bảng Điểm + Tổng Kết -->
+    <a class="d-flex justify-content-between align-items-center" 
+        data-bs-toggle="collapse" href="#diemMenu" role="button" aria-expanded="false" aria-controls="diemMenu">
+        <span><i class="fa fa-chart-bar me-2"></i> Bảng Điểm</span>
+        <i class="fa fa-chevron-down small"></i>
     </a>
-
-    <!-- Đăng xuất -->
+    <div class="collapse ps-4 {{ request()->routeIs('admin.diem.*', 'admin.tong-ket.*') ? 'show' : '' }}" id="diemMenu">
+        <a href="{{ route('admin.diem.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.diem.*') ? 'text-primary fw-bold' : '' }}">
+        Hướng Dẫn & Phản Biện
+        </a>
+        <a href="{{ route('admin.bang-tong-ket.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.bang-tong-ket.*') ? 'text-primary fw-bold' : '' }}">
+        Bảng Tổng Kết
+        </a>
+        <a href="{{ route('admin.tong-ket.index') }}" 
+        class="d-block py-1 text-decoration-none text-secondary {{ request()->routeIs('admin.tong-ket.*') ? 'text-primary fw-bold' : '' }}">
+        Điểm Tổng Kết
+        </a>
+    </div>
+    
     <a href="#" onclick="globalLogout(event); return false;" 
        class="d-block py-1 text-decoration-none text-danger">
         <i class="fa fa-sign-out-alt me-2"></i> Đăng xuất

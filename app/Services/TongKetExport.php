@@ -159,7 +159,8 @@ class TongKetExport
 
         \Log::info('danhSachTongKet count: ' . count($danhSachTongKet));
 
-        return $this->generateExcelHoiDong(collect($danhSachTongKet), $hoiDong->mahd, $hoiDong->tenhd);
+        // ✅ CHUYỂN THÀNH ARRAY THAY VÌ COLLECTION
+        return $this->generateExcelHoiDong($danhSachTongKet, $hoiDong->mahd, $hoiDong->tenhd);
     }
 
     /**
@@ -167,6 +168,13 @@ class TongKetExport
      */
     private function generateExcelHoiDong($data, $mahd, $tenHoiDong)
     {
+        // ✅ ĐẢM BẢO DATA LÀ ARRAY
+        if (!is_array($data)) {
+            $data = $data->toArray();
+        }
+
+        \Log::info('generateExcelHoiDong - data count: ' . count($data));
+
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Tổng Kết');
@@ -215,23 +223,30 @@ class TongKetExport
             $col++;
         }
 
-        // Dữ liệu
+        // ✅ Dữ liệu - CHẮC CHẮN LÀ ARRAY
         $row = 6;
         foreach ($data as $item) {
-            $sheet->setCellValue('A' . $row, $item['ttbc']);
-            $sheet->setCellValue('B' . $row, $item['mssv']);
-            $sheet->setCellValue('C' . $row, $item['hoten']);
-            $sheet->setCellValue('D' . $row, $item['lop']);
-            $sheet->setCellValue('E' . $row, $item['tendt']);
-            $sheet->setCellValue('F' . $row, $item['ten_gvhd']);
-            $sheet->setCellValue('G' . $row, $item['diem_hd'] !== '' ? $item['diem_hd'] : '');
-            $sheet->setCellValue('H' . $row, $item['ten_gvpb']);
-            $sheet->setCellValue('I' . $row, $item['diem_pb'] !== '' ? $item['diem_pb'] : '');
-            $sheet->setCellValue('J' . $row, $item['diem_gv1'] !== '' ? $item['diem_gv1'] : '');
-            $sheet->setCellValue('K' . $row, $item['diem_gv2'] !== '' ? $item['diem_gv2'] : '');
-            $sheet->setCellValue('L' . $row, $item['diem_gv3'] !== '' ? $item['diem_gv3'] : '');
-            $sheet->setCellValue('M' . $row, $item['diem_gv4'] !== '' ? $item['diem_gv4'] : '');
-            $sheet->setCellValue('N' . $row, $item['diem_tongket'] !== '' ? $item['diem_tongket'] : '');
+            // Convert object to array nếu cần
+            if (is_object($item)) {
+                $item = (array)$item;
+            }
+
+            \Log::info('Row ' . $row . ': ' . json_encode($item));
+
+            $sheet->setCellValue('A' . $row, $item['ttbc'] ?? '');
+            $sheet->setCellValue('B' . $row, $item['mssv'] ?? '');
+            $sheet->setCellValue('C' . $row, $item['hoten'] ?? '');
+            $sheet->setCellValue('D' . $row, $item['lop'] ?? '');
+            $sheet->setCellValue('E' . $row, $item['tendt'] ?? '');
+            $sheet->setCellValue('F' . $row, $item['ten_gvhd'] ?? '');
+            $sheet->setCellValue('G' . $row, ($item['diem_hd'] ?? '') !== '' ? floatval($item['diem_hd']) : '');
+            $sheet->setCellValue('H' . $row, $item['ten_gvpb'] ?? '');
+            $sheet->setCellValue('I' . $row, ($item['diem_pb'] ?? '') !== '' ? floatval($item['diem_pb']) : '');
+            $sheet->setCellValue('J' . $row, ($item['diem_gv1'] ?? '') !== '' ? floatval($item['diem_gv1']) : '');
+            $sheet->setCellValue('K' . $row, ($item['diem_gv2'] ?? '') !== '' ? floatval($item['diem_gv2']) : '');
+            $sheet->setCellValue('L' . $row, ($item['diem_gv3'] ?? '') !== '' ? floatval($item['diem_gv3']) : '');
+            $sheet->setCellValue('M' . $row, ($item['diem_gv4'] ?? '') !== '' ? floatval($item['diem_gv4']) : '');
+            $sheet->setCellValue('N' . $row, ($item['diem_tongket'] ?? '') !== '' ? floatval($item['diem_tongket']) : '');
 
             // Căn giữa các cột
             for ($col = 'A'; $col <= 'N'; $col++) {

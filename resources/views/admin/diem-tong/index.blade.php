@@ -50,66 +50,91 @@
 
                 {{-- Bảng điểm --}}
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                    <table class="table mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 8%">Nhóm</th>
-                                <th style="width: 12%">Tên Hội Đồng</th>
-                                <th style="width: 20%">Tên Đề Tài</th>
+                                <th style="width: 5%">TT BC</th>
                                 <th style="width: 10%">MSSV</th>
                                 <th style="width: 18%">Tên SV</th>
-                                <th style="width: 8%">Lớp</th>
+                                <th style="width: 20%">Tên Đề Tài</th>
+                                <th style="width: 13%">GVHD</th>
                                 <th style="width: 8%">Điểm HD</th>
+                                <th style="width: 13%">GVPB</th>
                                 <th style="width: 8%">Điểm PB</th>
-                                <th style="width: 8%">Điểm HĐ</th>
-                                <th style="width: 10%">Tổng</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse ($diem as $item)
-                                <tr>
-                                    <td><span class="badge bg-info">{{ $item['tennhom'] }}</span></td>
-                                    <td><strong>{{ $item['tenhd'] }}</strong></td>
-                                    <td>{{ $item['tendt'] }}</td>
-                                    <td><code>{{ $item['mssv'] }}</code></td>
-                                    <td>{{ $item['ten_sinh_vien'] }}</td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ $item['lop'] }}</span>
-                                    </td>
-                                    <td class="text-center">
-                                        @if($item['diem_hd'] > 0)
-                                            <span class="badge bg-info">{{ number_format($item['diem_hd'], 2) }}</span>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">
-                                        @if($item['diem_pb'] > 0)
-                                            <span class="badge bg-info">{{ number_format($item['diem_pb'], 2) }}</span>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">
-                                        @if($item['diem_gv'] > 0)
-                                            <span class="badge bg-warning">{{ number_format($item['diem_gv'], 2) }}</span>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-center">
-                                        <strong>
-                                            @if ($item['diem_tong'] > 0)
-                                                <span class="badge bg-success">{{ number_format($item['diem_tong'], 2) }}</span>
+                            @forelse ($diem as $index => $item)
+                                @php
+                                    // ✅ Kiểm tra xem sinh viên trước đó có cùng nhóm không
+                                    $prevNhom = ($index > 0) ? $diem[$index - 1]['nhom_id'] : null;
+                                    $currNhom = $item['nhom_id'];
+                                    $shouldSkip = ($prevNhom == $currNhom);
+                                @endphp
+                                
+                                @if (!$shouldSkip)
+                                    @php
+                                        // ✅ Đếm số sinh viên cùng nhóm
+                                        $rowspan = 1;
+                                        for ($i = $index + 1; $i < count($diem); $i++) {
+                                            if ($diem[$i]['nhom_id'] == $currNhom) {
+                                                $rowspan++;
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                    @endphp
+                                    <tr>
+                                        <td class="text-center align-middle" rowspan="{{ $rowspan }}">
+                                            <strong>{{ $item['ttbc'] ?? '-' }}</strong>
+                                        </td>
+                                        <td><code>{{ $item['mssv'] }}</code></td>
+                                        <td>{{ $item['ten_sinh_vien'] }}</td>
+                                        <td><small>{{ $item['tendt'] }}</small></td>
+                                        <td><small>{{ $item['ten_gvhd'] ?? '-' }}</small></td>
+                                        <td class="text-center">
+                                            @if($item['diem_hd'] > 0)
+                                                <span class="badge bg-info">{{ number_format($item['diem_hd'], 2) }}</span>
                                             @else
                                                 <span class="text-muted">-</span>
                                             @endif
-                                        </strong>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td><small>{{ $item['ten_gvpb'] ?? '-' }}</small></td>
+                                        <td class="text-center">
+                                            @if($item['diem_pb'] > 0)
+                                                <span class="badge bg-info">{{ number_format($item['diem_pb'], 2) }}</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @else
+                                    {{-- Dòng thứ 2 trở đi cùng nhóm (không có cột TTBC) --}}
+                                    <tr>
+                                        <td><code>{{ $item['mssv'] }}</code></td>
+                                        <td>{{ $item['ten_sinh_vien'] }}</td>
+                                        <td><small>{{ $item['tendt'] }}</small></td>
+                                        <td><small>{{ $item['ten_gvhd'] ?? '-' }}</small></td>
+                                        <td class="text-center">
+                                            @if($item['diem_hd'] > 0)
+                                                <span class="badge bg-info">{{ number_format($item['diem_hd'], 2) }}</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                        <td><small>{{ $item['ten_gvpb'] ?? '-' }}</small></td>
+                                        <td class="text-center">
+                                            @if($item['diem_pb'] > 0)
+                                                <span class="badge bg-info">{{ number_format($item['diem_pb'], 2) }}</span>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endif
                             @empty
                                 <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">
+                                    <td colspan="8" class="text-center text-muted py-4">
                                         📭 Không có dữ liệu
                                     </td>
                                 </tr>

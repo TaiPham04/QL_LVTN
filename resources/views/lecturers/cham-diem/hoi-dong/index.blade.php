@@ -121,7 +121,7 @@
                                                         <i class="fa fa-file-excel"></i>
                                                     </a>
                                                 @else
-                                                    <button class="btn btn-warning btn-sm" disabled 
+                                                    <button class="btn btn-secondary btn-sm" disabled 
                                                             title="Chưa chấm hết đề tài ({{ $uncheckedCount }}/{{ $deTaiList->count() }})">
                                                         <i class="fa fa-file-excel"></i>
                                                     </button>

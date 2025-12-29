@@ -15,9 +15,9 @@ class AdminController extends Controller
     // 👇 Hiển thị danh sách đề tài
     public function topics(Request $request)
     {
-        // 🔹 Lọc theo giảng viên và trạng thái
+        // 🔹 Lọc theo giảng viên và tìm kiếm
         $selectedLecturer = $request->input('lecturer');
-        $selectedStatus = $request->input('status');
+        $searchQuery = $request->input('search');
 
         $query = DB::table('detai')
             ->leftJoin('sinhvien', 'detai.mssv', '=', 'sinhvien.mssv')
@@ -38,14 +38,12 @@ class AdminController extends Controller
             $query->where('giangvien.hoten', $selectedLecturer);
         }
 
-        // Lọc theo trạng thái đề tài
-        if ($selectedStatus === 'co_detai') {
-            $query->whereNotNull('nhom.tendt')
-                  ->where('nhom.tendt', '!=', '');
-        } elseif ($selectedStatus === 'chua_detai') {
-            $query->where(function($q) {
-                $q->whereNull('nhom.tendt')
-                  ->orWhere('nhom.tendt', '');
+        // ✅ Tìm kiếm theo MSSV, tên sinh viên, tên đề tài
+        if (!empty($searchQuery)) {
+            $query->where(function($q) use ($searchQuery) {
+                $q->where('sinhvien.mssv', 'like', "%{$searchQuery}%")
+                  ->orWhere('sinhvien.hoten', 'like', "%{$searchQuery}%")
+                  ->orWhere('nhom.tendt', 'like', "%{$searchQuery}%");
             });
         }
 

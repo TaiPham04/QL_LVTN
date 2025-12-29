@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\TongKetExport;
 
-class TongKetController extends Controller
+class AdminTongKetController extends Controller
 {
     protected $exportService;
 
@@ -16,44 +16,51 @@ class TongKetController extends Controller
     }
 
     /**
-     * ✅ Danh sách hội đồng mà GV là Chủ tịch hoặc Thư ký
+     * ✅ Danh sách tất cả hội đồng (Admin xem được tất cả)
      */
     public function index()
     {
-        $user = session('user');
-        
-        if (!$user || !isset($user->magv)) {
-            return redirect('/login')->with('error', 'Vui lòng đăng nhập lại');
-        }
+        \Log::info('=== Admin TongKet Index ===');
 
-        $magv = $user->magv;
-        \Log::info('=== TongKet Index ===');
-        \Log::info('magv: ' . $magv);
-
-        // ✅ Lấy danh sách hội đồng mà GV là Chủ tịch hoặc Thư ký
-        $hoiDongList = DB::table('thanhvienhoidong as tv')
-            ->join('hoidong as hd', 'tv.hoidong_id', '=', 'hd.id')
+        // ✅ Lấy tất cả hội đồng (không giới hạn quyền)
+        $hoiDongList = DB::table('hoidong as hd')
             ->leftJoin('hoidong_detai as hdt', 'hd.id', '=', 'hdt.hoidong_id')
-            ->where('tv.magv', $magv)
-            ->whereIn('tv.vai_tro', ['chu_tich', 'thu_ky'])
             ->select(
                 'hd.id as hoidong_id',
                 'hd.mahd',
                 'hd.tenhd',
                 'hd.ngay_hoidong',
                 'hd.trang_thai',
-                'tv.vai_tro',
                 DB::raw('COUNT(DISTINCT hdt.nhom_id) as so_de_tai')
             )
-            ->groupBy('hd.id', 'hd.mahd', 'hd.tenhd', 'hd.ngay_hoidong', 'hd.trang_thai', 'tv.vai_tro')
+            ->groupBy('hd.id', 'hd.mahd', 'hd.tenhd', 'hd.ngay_hoidong', 'hd.trang_thai')
             ->orderBy('hd.ngay_hoidong', 'desc')
             ->get();
 
+        // Lấy thêm thông tin Chủ tịch và Thư ký cho mỗi hội đồng
+        foreach ($hoiDongList as $hd) {
+            $chuTich = DB::table('thanhvienhoidong as tv')
+                ->join('giangvien as gv', 'tv.magv', '=', 'gv.magv')
+                ->where('tv.hoidong_id', $hd->hoidong_id)
+                ->where('tv.vai_tro', 'chu_tich')
+                ->select('gv.hoten')
+                ->first();
+            
+            $thuKy = DB::table('thanhvienhoidong as tv')
+                ->join('giangvien as gv', 'tv.magv', '=', 'gv.magv')
+                ->where('tv.hoidong_id', $hd->hoidong_id)
+                ->where('tv.vai_tro', 'thu_ky')
+                ->select('gv.hoten')
+                ->first();
+
+            $hd->chu_tich = $chuTich?->hoten ?? '-';
+            $hd->thu_ky = $thuKy?->hoten ?? '-';
+        }
+
         \Log::info('hoiDongList count: ' . $hoiDongList->count());
 
-        return view('lecturers.tong-ket.index', [
-            'hoiDongList' => $hoiDongList,
-            'magvHienTai' => $magv
+        return view('admin.tong-ket.index', [
+            'hoiDongList' => $hoiDongList
         ]);
     }
 
@@ -62,37 +69,17 @@ class TongKetController extends Controller
      */
     public function show($hoidong_id)
     {
-        $user = session('user');
-        
-        if (!$user || !isset($user->magv)) {
-            return redirect('/login')->with('error', 'Vui lòng đăng nhập lại');
-        }
-
-        $magv = $user->magv;
-
-        // ✅ Kiểm tra: GV có phải Chủ tịch hoặc Thư ký của hội đồng này không
-        $isChairmanOrSecretary = DB::table('thanhvienhoidong')
-            ->where('hoidong_id', $hoidong_id)
-            ->where('magv', $magv)
-            ->whereIn('vai_tro', ['chu_tich', 'thu_ky'])
-            ->exists();
-
-        if (!$isChairmanOrSecretary) {
-            return redirect()->route('lecturers.tong-ket.index')
-                ->with('error', 'Bạn không có quyền xem hội đồng này!');
-        }
-
         // Lấy thông tin hội đồng
         $hoiDong = DB::table('hoidong')
             ->where('id', $hoidong_id)
             ->first();
 
         if (!$hoiDong) {
-            return redirect()->route('lecturers.tong-ket.index')
+            return redirect()->route('admin.tong-ket.index')
                 ->with('error', 'Hội đồng không tồn tại!');
         }
 
-        \Log::info('=== TongKet Show (Hội Đồng: ' . $hoiDong->mahd . ') ===');
+        \Log::info('=== Admin TongKet Show (Hội Đồng: ' . $hoiDong->mahd . ') ===');
 
         // ✅ Lấy tất cả đề tài của hội đồng (kể cả chưa chấm điểm)
         $deTaiList = DB::table('hoidong_detai as hdt')
@@ -237,56 +224,67 @@ class TongKetController extends Controller
 
         $khongCoDiem = empty($danhSachTongKet);
 
-        return view('lecturers.tong-ket.show', [
+        return view('admin.tong-ket.show', [
             'hoiDong' => $hoiDong,
             'danhSachTongKet' => $danhSachTongKet,
             'khongCoDiem' => $khongCoDiem,
-            'magvHienTai' => $magv
+            'tenGV1' => $tenGV1,
+            'tenGV2' => $tenGV2,
+            'tenGV3' => $tenGV3,
+            'tenGV4' => $tenGV4
         ]);
     }
 
     /**
-     * ✅ Xuất Excel tổng kết (từ hoidong_id query param hoặc từ request)
+     * ✅ Xuất Excel tổng kết (Admin không cần kiểm tra quyền)
      */
     public function exportExcel(Request $request)
     {
-        $user = session('user');
-        
-        if (!$user || !isset($user->magv)) {
-            return response()->json(['error' => 'User not found'], 401);
-        }
-
-        $magv = $user->magv;
         $hoidong_id = $request->query('hoidong_id');
 
-        // ✅ Kiểm tra: GV có phải Chủ tịch hoặc Thư ký của hội đồng này không
-        $isChairmanOrSecretary = DB::table('thanhvienhoidong')
-            ->where('hoidong_id', $hoidong_id)
-            ->where('magv', $magv)
-            ->whereIn('vai_tro', ['chu_tich', 'thu_ky'])
-            ->exists();
-
-        if (!$isChairmanOrSecretary) {
-            return response()->json([
-                'error' => 'Bạn không có quyền xuất! Chỉ Chủ tịch và Thư ký hội đồng mới có thể xuất.'
-            ], 403);
+        if (!$hoidong_id) {
+            \Log::error('❌ Thiếu hoidong_id');
+            return response()->json(['error' => 'Thiếu hoidong_id'], 400);
         }
 
-        \Log::info('=== EXPORT EXCEL CALLED ===');
-        \Log::info('magv: ' . $magv);
-        \Log::info('hoidong_id: ' . $hoidong_id);
+        \Log::info('✅ EXPORT START - hoidong_id: ' . $hoidong_id);
 
         try {
-            \Log::info('Starting export...');
+            // 1️⃣ Lấy hội đồng
+            $hoiDong = DB::table('hoidong')
+                ->where('id', $hoidong_id)
+                ->first();
+
+            if (!$hoiDong) {
+                \Log::error('❌ Hội đồng không tồn tại');
+                return response()->json(['error' => 'Hội đồng không tồn tại'], 404);
+            }
+
+            \Log::info('✅ Hội đồng: ' . $hoiDong->tenhd);
+
+            // 2️⃣ Gọi Service để lấy dữ liệu
+            \Log::info('📊 Calling exportService->exportExcelHoiDong()');
             $filepath = $this->exportService->exportExcelHoiDong($hoidong_id);
-            \Log::info('Export successful, filepath: ' . $filepath);
+
+            \Log::info('✅ File created: ' . $filepath);
+            \Log::info('✅ File exists: ' . (file_exists($filepath) ? 'YES' : 'NO'));
+            \Log::info('✅ File size: ' . (file_exists($filepath) ? filesize($filepath) . ' bytes' : 'N/A'));
+
+            // 3️⃣ Download file
+            $filename = 'DiemTongKet_' . $hoiDong->mahd . '_' . now()->format('Ymd_His') . '.xlsx';
             
-            return response()->download($filepath, 'DiemTongKet_' . now()->format('Ymd') . '.xlsx')
-                ->deleteFileAfterSend(true);
+            \Log::info('📥 Downloading: ' . $filename);
+
+            return response()->download($filepath, $filename)->deleteFileAfterSend(true);
+
         } catch (\Exception $e) {
-            \Log::error('Export Error: ' . $e->getMessage());
-            \Log::error('Stack: ' . $e->getTraceAsString());
-            return response()->json(['error' => 'Lỗi: ' . $e->getMessage()], 500);
+            \Log::error('❌ ERROR: ' . $e->getMessage());
+            \Log::error('📍 Stack: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'error' => 'Lỗi xuất file',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 }

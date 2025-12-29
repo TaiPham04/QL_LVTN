@@ -70,36 +70,22 @@ class ChamDiemHoiDongExport
                     ->where('mssv', $sv->mssv)
                     ->first();
 
-                $diemTV1 = $diemRecord->diem_chu_tich ?? null;      // Chủ tịch
-                $diemTV2 = $diemRecord->diem_thu_ky ?? null;        // Thư ký
-                $diemTV3 = $diemRecord->diem_thanh_vien_1 ?? null;  // Thành viên 1
-                $diemTV4 = $diemRecord->diem_thanh_vien_2 ?? null;  // Thành viên 2
-
-                // ✅ Tính điểm trung bình hội đồng
-                $diemTBHoiDong = null;
-                if ($diemTV1 !== null && $diemTV2 !== null && $diemTV3 !== null && $diemTV4 !== null) {
-                    $diemTBHoiDong = ($diemTV1 + $diemTV2 + $diemTV3 + $diemTV4) / 4;
-                }
-
-                // ✅ Tính điểm tổng theo công thức
-                // Điểm Tổng = (HD*20 + PB*20 + (TB HĐ)*60) / 100
-                $diemTong = null;
-                if ($diemHD !== null && $diemPB !== null && $diemTBHoiDong !== null) {
-                    $diemTong = round(($diemHD * 20 + $diemPB * 20 + $diemTBHoiDong * 60) / 100, 2);
-                }
+                $diemTV1 = $diemRecord?->diem_chu_tich ?? null;      // Chủ tịch
+                $diemTV2 = $diemRecord?->diem_thu_ky ?? null;        // Thư ký
+                $diemTV3 = $diemRecord?->diem_thanh_vien_1 ?? null;  // Thành viên 1
+                $diemTV4 = $diemRecord?->diem_thanh_vien_2 ?? null;  // Thành viên 2
 
                 $row = [
                     'mssv' => $sv->mssv,
                     'hoten' => $sv->hoten,
                     'lop' => $sv->lop,
                     'tendt' => $deTai->tendt,
-                    'diem_hd' => $diemHD ? round($diemHD, 2) : '',
-                    'diem_pb' => $diemPB ? round($diemPB, 2) : '',
-                    'diem_tv1' => $diemTV1 ? round($diemTV1, 2) : '',      // Chủ tịch
-                    'diem_tv2' => $diemTV2 ? round($diemTV2, 2) : '',      // Thư ký
-                    'diem_tv3' => $diemTV3 ? round($diemTV3, 2) : '',      // Thành viên 1
-                    'diem_tv4' => $diemTV4 ? round($diemTV4, 2) : '',      // Thành viên 2
-                    'diem_tong' => $diemTong ?? '',
+                    'diem_hd' => $diemHD !== null ? round($diemHD, 2) : '',
+                    'diem_pb' => $diemPB !== null ? round($diemPB, 2) : '',
+                    'diem_tv1' => $diemTV1 !== null ? round($diemTV1, 2) : '',      // Chủ tịch
+                    'diem_tv2' => $diemTV2 !== null ? round($diemTV2, 2) : '',      // Thư ký
+                    'diem_tv3' => $diemTV3 !== null ? round($diemTV3, 2) : '',      // Thành viên 1
+                    'diem_tv4' => $diemTV4 !== null ? round($diemTV4, 2) : '',      // Thành viên 2
                 ];
 
                 $data[] = $row;
@@ -120,16 +106,16 @@ class ChamDiemHoiDongExport
 
         // Header
         $sheet->setCellValue('A1', 'HỘI ĐỒNG: ' . $tenHoiDong);
-        $sheet->mergeCells('A1:K1');
+        $sheet->mergeCells('A1:J1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // ✅ Chỉ giữ ngày xuất
         $sheet->setCellValue('A2', 'Ngày xuất: ' . now()->format('d/m/Y'));
-        $sheet->mergeCells('A2:K2');
+        $sheet->mergeCells('A2:J2');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // Tiêu đề cột
+        // ✅ Tiêu đề cột (BỎ cột Điểm Tổng)
         $headers = [
             'MSSV',
             'Tên Sinh Viên',
@@ -140,8 +126,7 @@ class ChamDiemHoiDongExport
             'Điểm GV1',
             'Điểm GV2',
             'Điểm GV3',
-            'Điểm GV4',
-            'Điểm Tổng'
+            'Điểm GV4'
         ];
 
         $col = 'A';
@@ -156,23 +141,22 @@ class ChamDiemHoiDongExport
             $col++;
         }
 
-        // Dữ liệu
+        // ✅ Dữ liệu (BỎ cột K)
         $row = 5;
         foreach ($data as $item) {
             $sheet->setCellValue('A' . $row, $item['mssv']);
             $sheet->setCellValue('B' . $row, $item['hoten']);
             $sheet->setCellValue('C' . $row, $item['lop']);
             $sheet->setCellValue('D' . $row, $item['tendt']);
-            $sheet->setCellValue('E' . $row, $item['diem_hd']);
-            $sheet->setCellValue('F' . $row, $item['diem_pb']);
-            $sheet->setCellValue('G' . $row, $item['diem_tv1']);
-            $sheet->setCellValue('H' . $row, $item['diem_tv2']);
-            $sheet->setCellValue('I' . $row, $item['diem_tv3']);
-            $sheet->setCellValue('J' . $row, $item['diem_tv4']);
-            $sheet->setCellValue('K' . $row, $item['diem_tong']);
+            $sheet->setCellValue('E' . $row, $item['diem_hd'] !== '' ? floatval($item['diem_hd']) : '');
+            $sheet->setCellValue('F' . $row, $item['diem_pb'] !== '' ? floatval($item['diem_pb']) : '');
+            $sheet->setCellValue('G' . $row, $item['diem_tv1'] !== '' ? floatval($item['diem_tv1']) : '');
+            $sheet->setCellValue('H' . $row, $item['diem_tv2'] !== '' ? floatval($item['diem_tv2']) : '');
+            $sheet->setCellValue('I' . $row, $item['diem_tv3'] !== '' ? floatval($item['diem_tv3']) : '');
+            $sheet->setCellValue('J' . $row, $item['diem_tv4'] !== '' ? floatval($item['diem_tv4']) : '');
 
             // Căn giữa các cột điểm
-            for ($col = 'E'; $col <= 'K'; $col++) {
+            for ($col = 'E'; $col <= 'J'; $col++) {
                 $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
 
@@ -186,14 +170,12 @@ class ChamDiemHoiDongExport
         $sheet->getColumnDimension('D')->setWidth(30);  // Tên Đề Tài
         $sheet->getColumnDimension('E')->setWidth(12);  // Điểm HD
         $sheet->getColumnDimension('F')->setWidth(12);  // Điểm PB
-        $sheet->getColumnDimension('G')->setWidth(18);  // Điểm TV1
-        $sheet->getColumnDimension('H')->setWidth(18);  // Điểm TV2
-        $sheet->getColumnDimension('I')->setWidth(18);  // Điểm TV3
-        $sheet->getColumnDimension('J')->setWidth(18);  // Điểm TV4
-        $sheet->getColumnDimension('K')->setWidth(12);  // Điểm Tổng
+        $sheet->getColumnDimension('G')->setWidth(12);  // Điểm TV1
+        $sheet->getColumnDimension('H')->setWidth(12);  // Điểm TV2
+        $sheet->getColumnDimension('I')->setWidth(12);  // Điểm TV3
+        $sheet->getColumnDimension('J')->setWidth(12);  // Điểm TV4
 
-        // ✅ Lưu file với tên: HoiDong_{mahd}_{YYYYMMdd}
-        // Ví dụ: HoiDong_1_20251225.xlsx
+        // ✅ Lưu file
         $filename = 'HoiDong_' . $mahd . '_' . now()->format('Ymd') . '.xlsx';
         $filepath = storage_path('app/temp/' . $filename);
         
